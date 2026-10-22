@@ -1,0 +1,59 @@
+## Derleme çıktıları
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Gizli bilgiler (depoya GİRMEMELİ)
+appsettings.Development.json
+appsettings.Local.json
+*.env
+.env
+secrets.json
+
+## Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+launchSettings.json.bak
+
+## VS Code
+.vscode/
+
+## JetBrains Rider
+.idea/
+*.sln.iml
+
+## NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+project.lock.json
+.nuget/
+
+## Test ve yayın çıktıları
+[Tt]est[Rr]esult*/
+*.trx
+coverage*.json
+coverage*.xml
+publish/
+PublishScripts/
+
+## Node (wwwroot kütüphaneleri için)
+node_modules/
+npm-debug.log*
+
+## İşletim sistemi
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+## Yedek ve geçici dosyalar
+*.bak
+*.tmp
+*~
