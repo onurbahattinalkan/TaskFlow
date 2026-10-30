@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace TaskFlow.Models;
 
+//bizim uygulamamızda bir ekip (Team) sınıfını temsil eder. Bu sınıf, ekibin temel bilgilerini ve ilişkili varlıkları içerir.
 public class Team
 {
     public int Id { get; set; }
@@ -19,6 +20,7 @@ public class Team
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Ekibin üyeleri (Team 1 - N TeamMember)
+    //ICollection<T>: T tütünde nesneleri tutan liste türü
     public ICollection<TeamMember> Members { get; set; } = new List<TeamMember>();
 
     // Ekibe ait projeler (Team 1 - N Project)

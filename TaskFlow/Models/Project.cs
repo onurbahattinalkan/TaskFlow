@@ -1,12 +1,23 @@
+/*
+public ... {get; set;} = null!;  //null ama sonra doldurulabilir
+public ... {get; set;} = string.Empty;  //boş string ile başlatılır
+public ... {get; set;} = new List<TeamMember>();  //boş liste ile başlatılır
+public ... {get; set;} = DateTime.UtcNow;  //şu anki zamanı alır ve UTC olarak alır
+public ... {get; set;} // başlangıç değeri yok, ama derleyzici uyarı verir 
+*/
+
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TaskFlow.Models;
 
+//bizim projemizin Project sınıfını temsil eder. Bu sınıf, projenin temel bilgilerini ve ilişkili varlıkları içerir
 public class Project
 {
     public int Id { get; set; }
 
+    //Required: zorunlu alan
+    //Display: kullanıcıya gösterilecek isim
     [Required(ErrorMessage = "Proje adı zorunludur.")]
     [StringLength(150, ErrorMessage = "Proje adı en fazla 150 karakter olabilir.")]
     [Display(Name = "Proje Adı")]

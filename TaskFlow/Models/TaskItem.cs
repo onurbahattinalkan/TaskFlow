@@ -3,8 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TaskFlow.Models;
 
-// Sınıf adı System.Threading.Tasks.Task ile çakışmasın diye TaskItem.
-// Veritabanındaki tablo adı "Tasks" olur.
+//TaskItem, uygulamadaki görev kaydını temsil eder. Veritabanında Tasks tablosuna denk gelir, her nesne tabloda bir satırdır.
 [Table("Tasks")]
 public class TaskItem
 {
@@ -28,7 +27,7 @@ public class TaskItem
     [Display(Name = "Oluşturulma Tarihi")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // Görev bir projeye aittir (Project 1 - N TaskItem)
+    // birden fazla görev bir projeye ait olabilir (Project 1 - N TaskItem)
     [Required(ErrorMessage = "Proje seçilmelidir.")]
     [Display(Name = "Proje")]
     public int ProjectId { get; set; }
