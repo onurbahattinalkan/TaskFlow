@@ -3,8 +3,9 @@ using TaskFlow.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
+//veritabanının nerede ve ona nasıl bağlanılacağını belirtir
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+//AppDbContext'i uygulamaya tanıtır ve veritabanı bağlantısını yapılandırır
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 
 
