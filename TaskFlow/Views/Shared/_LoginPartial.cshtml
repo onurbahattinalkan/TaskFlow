@@ -1,0 +1,30 @@
+@* Menünün sağ tarafı: giriş durumuna göre farklı içerik gösterir.
+   _Layout.cshtml'e eklendiği için HER sayfada görünür. *@
+
+<ul class="navbar-nav">
+    @* User: şu anki isteği yapan kişi (çerezden okunur).
+       IsAuthenticated: geçerli bir giriş çerezi var mı? *@
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <li class="nav-item">
+            @* User.Identity.Name → giriş yapan kişinin UserName'i (çerezin içinde saklı) *@
+            <span class="nav-link text-dark">Merhaba, <strong>@User.Identity.Name</strong></span>
+        </li>
+        <li class="nav-item">
+            @* Çıkış bir LINK değil FORM: POST ile gönderilir, CSRF token'ı otomatik eklenir.
+               Buton link gibi görünsün diye btn-link sınıfını kullanıyoruz. *@
+            <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                <button type="submit" class="nav-link btn btn-link text-dark">Çıkış Yap</button>
+            </form>
+        </li>
+    }
+    else
+    {
+        <li class="nav-item">
+            <a class="nav-link text-dark" asp-controller="Account" asp-action="Login">Giriş Yap</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link text-dark" asp-controller="Account" asp-action="Register">Kayıt Ol</a>
+        </li>
+    }
+</ul>

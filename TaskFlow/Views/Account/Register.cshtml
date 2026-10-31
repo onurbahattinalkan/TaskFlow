@@ -1,0 +1,73 @@
+@* Bu sayfanın hangi veri tipiyle çalıştığını belirtir: alanlar ve kurallar buradan okunur *@
+@model RegisterViewModel
+
+@{
+    // _Layout.cshtml'deki <title> etiketine gider
+    ViewData["Title"] = "Kayıt Ol";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h2 class="h4 mb-4 text-center">TaskFlow'a Kayıt Ol</h2>
+
+                @* asp-action: form /Account/Register adresine POST edilir.
+                   Tag Helper, CSRF koruması için gizli token alanını otomatik ekler. *@
+                <form asp-action="Register" method="post">
+
+                    @* Belirli bir alana ait olmayan hatalar (ör. "Bu kullanıcı adı alınmış") *@
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+                    <div class="mb-3">
+                        @* label metni [Display(Name="E-posta")] etiketinden gelir *@
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email" class="form-control" autocomplete="email" placeholder="ornek@mail.com" />
+                        @* Bu alanın hata mesajı buraya yazılır *@
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="UserName" class="form-label"></label>
+                        <input asp-for="UserName" class="form-control" autocomplete="username" />
+                        <div class="form-text">Uygulamada bu adla görüneceksiniz. Boşluk kullanmayın.</div>
+                        <span asp-validation-for="UserName" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="FullName" class="form-label"></label>
+                        <input asp-for="FullName" class="form-control" autocomplete="name" />
+                        <span asp-validation-for="FullName" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        @* [DataType(Password)] sayesinde type="password" otomatik gelir *@
+                        <label asp-for="Password" class="form-label"></label>
+                        <input asp-for="Password" class="form-control" autocomplete="new-password" />
+                        <div class="form-text">En az 6 karakter, en az 1 rakam ve 1 küçük harf.</div>
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="ConfirmPassword" class="form-label"></label>
+                        <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                        <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Kayıt Ol</button>
+                </form>
+
+                <p class="text-center mt-3 mb-0 small">
+                    Zaten hesabınız var mı?
+                    @* Login sayfası 2.5'te gelecek *@
+                    <a asp-action="Login">Giriş yapın</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Tarayıcı tarafı doğrulama (jQuery Validation) scriptlerini sayfanın sonuna ekler *@
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -43,7 +43,8 @@ builder.Services
     // Kullanıcıları ve rolleri AppDbContext üzerinden PostgreSQL'de sakla
     .AddEntityFrameworkStores<AppDbContext>()
     // E-posta onay linki ve şifre sıfırlama için tek kullanımlık kod (token) üreticileri
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddErrorDescriber<TurkishIdentityErrorDescriber>();
 
 // Giriş çerezi (cookie) ayarları
 builder.Services.ConfigureApplicationCookie(options =>
