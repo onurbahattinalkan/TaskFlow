@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using TaskFlow.Data;
 using TaskFlow.Models;
 using TaskFlow.ViewModels;
+using TaskFlow.Services;
 
 namespace TaskFlow.Controllers;
 
@@ -18,10 +19,17 @@ public class TeamsController : Controller
     // Giriş yapan kullanıcının Id'sini almak için
     private readonly UserManager<ApplicationUser> _userManager;
 
-    public TeamsController(AppDbContext context, UserManager<ApplicationUser> userManager)
+    // 3.5'te yazdığımız ekip yetki servisi
+    private readonly ITeamAuthorizationService _teamAuth;
+
+    public TeamsController(
+        AppDbContext context,
+        UserManager<ApplicationUser> userManager,
+        ITeamAuthorizationService teamAuth)
     {
         _context = context;
         _userManager = userManager;
+        _teamAuth = teamAuth;
     }
 
     // ------------------------------------------------------------------
@@ -100,5 +108,104 @@ public class TeamsController : Controller
         // TempData: yönlendirmeden SONRAKİ sayfaya bir kerelik mesaj taşır
         TempData["Success"] = $"'{team.Name}' ekibi oluşturuldu. Ekibin lideri sizsiniz.";
         return RedirectToAction(nameof(Index));
+    }
+
+    // ------------------------------------------------------------------
+    // GET /Teams/Details/5  → ekip bilgisi + üyeler (sadece üyeler görebilir)
+    // ------------------------------------------------------------------
+    [HttpGet]
+    public async Task<IActionResult> Details(int id)
+    {
+        // 1) Ekibi ve üyelerini tek sorguda, sadece gereken alanlarla çek
+        var model = await _context.Teams
+            .Where(t => t.Id == id)
+            .Select(t => new TeamDetailsViewModel
+            {
+                TeamId = t.Id,
+                Name = t.Name,
+                Description = t.Description,
+                CreatedAt = t.CreatedAt,
+                Members = t.Members
+                    // Lider en üstte, sonra kullanıcı adına göre
+                    .OrderByDescending(m => m.TeamRole == TeamRoles.Leader)
+                    .ThenBy(m => m.User.UserName)
+                    .Select(m => new TeamMemberItemViewModel
+                    {
+                        UserId = m.UserId,
+                        UserName = m.User.UserName ?? "",
+                        FullName = m.User.FullName,
+                        TeamRole = m.TeamRole,
+                        JoinedAt = m.JoinedAt
+                    })
+                    .ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        // 2) Ekip yoksa 404
+        if (model == null)
+            return NotFound();
+
+        // 3) Üye değilse 403 → AccessDenied sayfası.
+        //    URL'deki id'yi değiştirip başkasının ekibine bakmayı (IDOR) burası engeller.
+        if (!await _teamAuth.IsMemberAsync(User, id))
+            return Forbid();
+
+        // 4) Lider mi? (view'da "Üye ekle" formunu göstermek için)
+        model.CanManage = await _teamAuth.IsLeaderAsync(User, id);
+
+        return View(model);
+    }
+
+    // ------------------------------------------------------------------
+    // POST /Teams/AddMember  → ekibe üye ekle (sadece lider)
+    // ------------------------------------------------------------------
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddMember(AddMemberViewModel model)
+    {
+        // 1) SUNUCU tarafı yetki kontrolü: form sadece lidere gösteriliyor
+        //    ama biri isteği elle gönderebilir, o yüzden burada tekrar soruyoruz.
+        if (!await _teamAuth.IsLeaderAsync(User, model.TeamId))
+            return Forbid();
+
+        // Form Details sayfasının içinde. Hata olursa o sayfaya dönüp mesajı TempData ile taşıyoruz.
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "Kullanıcı adı veya e-posta girin.";
+            return RedirectToAction(nameof(Details), new { id = model.TeamId });
+        }
+
+        // 2) Kullanıcıyı bul: içinde @ varsa e-posta, yoksa kullanıcı adı olarak ara
+        var input = model.UserNameOrEmail.Trim();
+        var userToAdd = input.Contains('@')
+            ? await _userManager.FindByEmailAsync(input)
+            : await _userManager.FindByNameAsync(input);
+
+        if (userToAdd == null)
+        {
+            TempData["Error"] = $"'{input}' adında/adresinde bir kullanıcı bulunamadı.";
+            return RedirectToAction(nameof(Details), new { id = model.TeamId });
+        }
+
+        // 3) Zaten üye mi?
+        var alreadyMember = await _context.TeamMembers
+            .AnyAsync(m => m.TeamId == model.TeamId && m.UserId == userToAdd.Id);
+        if (alreadyMember)
+        {
+            TempData["Error"] = $"{userToAdd.UserName} zaten bu ekibin üyesi.";
+            return RedirectToAction(nameof(Details), new { id = model.TeamId });
+        }
+
+        // 4) Üye olarak ekle
+        _context.TeamMembers.Add(new TeamMember
+        {
+            TeamId = model.TeamId,
+            UserId = userToAdd.Id,
+            TeamRole = TeamRoles.Member
+        });
+        await _context.SaveChangesAsync();
+
+        TempData["Success"] = $"{userToAdd.UserName} ekibe üye olarak eklendi.";
+        return RedirectToAction(nameof(Details), new { id = model.TeamId });
     }
 }

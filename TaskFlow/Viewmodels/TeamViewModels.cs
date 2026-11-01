@@ -25,3 +25,37 @@ public class TeamListItemViewModel
     public string MyRole { get; set; } = string.Empty; // giriş yapan kullanıcının bu ekipteki rolü
     public int MemberCount { get; set; }
 }
+
+// Ekip detay sayfasının verisi
+public class TeamDetailsViewModel
+{
+    public int TeamId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    // Giriş yapan kişi bu ekibi yönetebilir mi? (üye ekleme formunu göstermek için)
+    public bool CanManage { get; set; }
+
+    public List<TeamMemberItemViewModel> Members { get; set; } = new();
+}
+
+// Üye tablosundaki bir satır
+public class TeamMemberItemViewModel
+{
+    public string UserId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string TeamRole { get; set; } = string.Empty;
+    public DateTime JoinedAt { get; set; }
+}
+
+// Üye ekleme formu: lider, kullanıcı adı ya da e-posta yazar
+public class AddMemberViewModel
+{
+    public int TeamId { get; set; }
+
+    [Required(ErrorMessage = "Kullanıcı adı veya e-posta girin.")]
+    [Display(Name = "Kullanıcı adı veya e-posta")]
+    public string UserNameOrEmail { get; set; } = string.Empty;
+}

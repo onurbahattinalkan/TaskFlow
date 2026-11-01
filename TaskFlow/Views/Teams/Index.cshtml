@@ -5,18 +5,7 @@
 }
 
 @* Create'ten yönlendirildiysek başarı mesajını bir kez göster *@
-@if (TempData["Success"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show">
-        @TempData["Success"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Kapat"></button>
-    </div>
-}
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="h4 mb-0">Ekiplerim</h2>
-    <a asp-action="Create" class="btn btn-primary">+ Yeni Ekip</a>
-</div>
+<partial name="_TempDataAlerts" />
 
 @if (Model.Count == 0)
 {
@@ -35,7 +24,11 @@ else
                 <div class="card h-100 shadow-sm">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h3 class="h5 mb-0">@team.Name</h3>
+                                                        @* stretched-link: linkin tıklama alanını tüm karta yayar *@
+                            <h3 class="h5 mb-0">
+                                <a asp-action="Details" asp-route-id="@team.TeamId"
+                                   class="stretched-link text-decoration-none text-dark">@team.Name</a>
+                            </h3>
                             @* Lider ise mavi, üye ise gri rozet *@
                             <span class="badge @(team.MyRole == TeamRoles.Leader ? "bg-primary" : "bg-secondary")">
                                 @team.MyRole
