@@ -26,6 +26,14 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
+                                                @* 1. katman (arayüz): link sadece Admin'e görünür.
+                           Asıl güvenlik AdminController'daki [Authorize] etiketinde. *@
+                        @if (User.IsInRole(AppRoles.Admin))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Admin" asp-action="Users">Yönetim</a>
+                            </li>
+                        }
                     </ul>
                     @* Sağ taraf: Giriş/Kayıt veya Merhaba/Çıkış *@
                     <partial name="_LoginPartial" />

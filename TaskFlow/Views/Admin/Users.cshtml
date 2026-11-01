@@ -1,0 +1,54 @@
+@* Bu sayfa bir LİSTE alıyor: her eleman bir tablo satırı *@
+@model List<UserListItemViewModel>
+
+@{
+    ViewData["Title"] = "Kullanıcılar";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="h4 mb-0">Kullanıcılar</h2>
+    @* Model.Count: listedeki eleman sayısı *@
+    <span class="text-muted small">Toplam @Model.Count kullanıcı</span>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Kullanıcı Adı</th>
+                <th>Ad Soyad</th>
+                <th>E-posta</th>
+                <th>E-posta Onayı</th>
+                <th>Roller</th>
+            </tr>
+        </thead>
+        <tbody>
+            @* Listedeki her kullanıcı için bir satır çiz *@
+            @foreach (var user in Model)
+            {
+                <tr>
+                    <td><strong>@user.UserName</strong></td>
+                    <td>@user.FullName</td>
+                    <td>@user.Email</td>
+                    <td>
+                        @if (user.EmailConfirmed)
+                        {
+                            <span class="badge bg-success">Onaylı</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Bekliyor</span>
+                        }
+                    </td>
+                    <td>
+                        @* Her rol için bir rozet: Admin kırmızı, diğerleri gri *@
+                        @foreach (var role in user.Roles)
+                        {
+                            <span class="badge @(role == AppRoles.Admin ? "bg-danger" : "bg-secondary") me-1">@role</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
