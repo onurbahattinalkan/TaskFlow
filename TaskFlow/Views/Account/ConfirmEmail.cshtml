@@ -1,0 +1,31 @@
+@{
+    ViewData["Title"] = "E-posta Onayı";
+
+    // Controller'dan gelen sonuç. ViewBag "dynamic" tiptedir, bool'a çeviriyoruz.
+    // Değer hiç gelmezse (null) başarısız sayılır.
+    var success = ViewBag.Success as bool? ?? false;
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm text-center">
+            <div class="card-body p-4">
+                @if (success)
+                {
+                    @* Onay başarılı: EmailConfirmed artık true *@
+                    <h2 class="h4 mb-3 text-success">✅ E-posta adresiniz onaylandı</h2>
+                    <p>Hesabınız etkinleştirildi. Artık giriş yapabilirsiniz.</p>
+                    @* Login sayfası 2.5'te gelecek *@
+                    <a asp-action="Login" class="btn btn-primary">Giriş Yap</a>
+                }
+                else
+                {
+                    @* Token yanlış, bozuk veya süresi dolmuş *@
+                    <h2 class="h4 mb-3 text-danger">❌ Onay başarısız</h2>
+                    <p>Bağlantı geçersiz veya süresi dolmuş olabilir.</p>
+                    <a asp-action="Register" class="btn btn-outline-secondary">Kayıt sayfasına dön</a>
+                }
+            </div>
+        </div>
+    </div>
+</div>

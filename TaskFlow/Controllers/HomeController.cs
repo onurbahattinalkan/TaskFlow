@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.Models;
@@ -10,7 +11,7 @@ public class HomeController : Controller
     {
         return View();
     }
-
+    
     public IActionResult Privacy()
     {
         return View();

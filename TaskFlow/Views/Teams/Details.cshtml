@@ -1,0 +1,94 @@
+@model TeamDetailsViewModel
+
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<partial name="_TempDataAlerts" />
+
+<div class="mb-4">
+    <a asp-action="Index" class="small text-decoration-none">← Ekiplerim</a>
+    <h2 class="h3 mt-2 mb-1">@Model.Name</h2>
+    <p class="text-muted mb-1">@(Model.Description ?? "Açıklama yok")</p>
+    @* UTC tutulan tarihi kullanıcının yerel saatine çevirip gün.ay.yıl biçiminde göster *@
+    <p class="small text-muted">Kuruluş: @Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</p>
+</div>
+
+<div class="row g-4">
+    @* ---------- Üye listesi ---------- *@
+    <div class="col-lg-8">
+        <h3 class="h5">Üyeler (@Model.Members.Count)</h3>
+        <table class="table align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Kullanıcı Adı</th>
+                    <th>Ad Soyad</th>
+                    <th>Rol</th>
+                    <th>Katılma</th>
+                                        @* İşlem sütunu sadece lidere görünür *@
+                    @if (Model.CanManage)
+                    {
+                        <th class="text-end">İşlem</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in Model.Members)
+                {
+                    <tr>
+                        <td><strong>@m.UserName</strong></td>
+                        <td>@m.FullName</td>
+                        <td>
+                            <span class="badge @(m.TeamRole == TeamRoles.Leader ? "bg-primary" : "bg-secondary")">
+                                @m.TeamRole
+                            </span>
+                        </td>
+                        <td class="small">@m.JoinedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                                    @if (Model.CanManage)
+                        {
+                            <td class="text-end">
+                                @* Sadece "Üye" olanlara buton; liderin kendisine gerek yok *@
+                                @if (m.TeamRole != TeamRoles.Leader)
+                                {
+                                    @* Durumu değiştiren işlem → POST formu (CSRF token'ı otomatik eklenir).
+                                       onsubmit/confirm: geri alınması zor olduğu için tarayıcı onay sorsun;
+                                       "İptal"e basılırsa false döner ve form gönderilmez. *@
+                                    <form asp-action="TransferLeadership" method="post" class="d-inline"
+                                          onsubmit="return confirm('Liderliği @m.UserName kullanıcısına devretmek istediğinize emin misiniz? Siz üye olacaksınız.');">
+                                        <input type="hidden" name="teamId" value="@Model.TeamId" />
+                                        <input type="hidden" name="newLeaderUserId" value="@m.UserId" />
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Lider yap</button>
+                                    </form>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @* ---------- Üye ekleme (sadece lider görür) ----------
+       Bu sadece ARAYÜZ katmanı; asıl kontrol AddMember POST metodunda. *@
+    @if (Model.CanManage)
+    {
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h3 class="h6 mb-3">Üye Ekle</h3>
+                    @* Sayfanın modeli TeamDetailsViewModel; bu form ise AddMemberViewModel gönderiyor.
+                       Alan adları (name) AddMemberViewModel'in özellik adlarıyla AYNI olmalı. *@
+                    <form asp-action="AddMember" method="post">
+                        <input type="hidden" name="TeamId" value="@Model.TeamId" />
+                        <div class="mb-2">
+                            <input name="UserNameOrEmail" class="form-control"
+                                   placeholder="Kullanıcı adı veya e-posta" required />
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Ekle</button>
+                    </form>
+                    <p class="small text-muted mt-2 mb-0">Eklenen kişi "Üye" rolüyle katılır.</p>
+                </div>
+            </div>
+        </div>
+    }
+</div>

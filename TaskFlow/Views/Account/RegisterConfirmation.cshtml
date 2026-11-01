@@ -1,0 +1,21 @@
+@{
+    ViewData["Title"] = "E-postanızı Kontrol Edin";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm text-center">
+            <div class="card-body p-4">
+                <h2 class="h4 mb-3">📧 E-postanızı kontrol edin</h2>
+                <p>
+                    @* Controller'da ViewBag.Email'e koyduğumuz adres *@
+                    <strong>@ViewBag.Email</strong> adresine bir onay bağlantısı gönderdik.
+                </p>
+                <p class="text-muted small mb-0">
+                    Hesabınızı kullanabilmek için bağlantıya tıklayın.
+                    Gelen kutunuzda yoksa spam klasörüne bakın.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
