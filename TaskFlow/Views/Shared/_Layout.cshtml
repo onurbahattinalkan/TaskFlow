@@ -26,25 +26,25 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
-                        @* Giriş yapmış herkes projelerini ve ekiplerini görebilir *@
+                                                @* Giriş yapmış herkes kendi ekiplerini görebilir *@
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Projects" asp-action="Index">Projeler</a>
-                            </li>
-                            <li class="nav-item">
                                 <a class="nav-link text-dark" asp-controller="Teams" asp-action="Index">Ekiplerim</a>
                             </li>
+                            @* Giriş yapmış herkes projeleri görebilir *@
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Projects" asp-action="Index">Projeler</a>
+                            </li>
                         }
-                        @* 1. katman (arayüz): link sadece Admin'e görünür.
-                            Asıl güvenlik AdminController'daki [Authorize] etiketinde. *@
+                                                @* 1. katman (arayüz): link sadece Admin'e görünür.
+                           Asıl güvenlik AdminController'daki [Authorize] etiketinde. *@
                         @if (User.IsInRole(AppRoles.Admin))
                         {
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-controller="Admin" asp-action="Users">Yönetim</a>
                             </li>
                         }
->>>>>>> origin
                     </ul>
                     @* Sağ taraf: Giriş/Kayıt veya Merhaba/Çıkış *@
                     <partial name="_LoginPartial" />
