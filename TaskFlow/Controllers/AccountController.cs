@@ -81,6 +81,10 @@ public class AccountController : Controller
             return View(model);
         }
 
+        // Kayıt olan herkes "User" rolüyle başlar.
+        // (Admin rolü sadece seed ile verilir; kayıt formundan Admin olunamaz.)
+        await _userManager.AddToRoleAsync(user, AppRoles.User);
+
         // 4) Onay mailini gönder
         await SendConfirmationEmailAsync(user);
 

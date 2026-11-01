@@ -8,7 +8,14 @@
     {
         <li class="nav-item">
             @* User.Identity.Name → giriş yapan kişinin UserName'i (çerezin içinde saklı) *@
-            <span class="nav-link text-dark">Merhaba, <strong>@User.Identity.Name</strong></span>
+                        <span class="nav-link text-dark">
+                Merhaba, <strong>@User.Identity.Name</strong>
+                @* IsInRole: çerezdeki rol bilgisine bakar. Admin ise küçük kırmızı rozet göster *@
+                @if (User.IsInRole(AppRoles.Admin))
+                {
+                    <span class="badge bg-danger ms-1">Admin</span>
+                }
+            </span>
         </li>
         <li class="nav-item">
             @* Çıkış bir LINK değil FORM: POST ile gönderilir, CSRF token'ı otomatik eklenir.

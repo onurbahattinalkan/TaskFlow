@@ -75,6 +75,14 @@ builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
 
+// Açılışta rolleri ve admin hesabını oluştur.
+// UserManager/RoleManager "scoped" servislerdir: normalde her HTTP isteği için bir tane oluşur.
+// Şu an bir istek olmadığı için geçici bir scope (kapsam) açıp servisleri onun içinden alıyoruz.
+using (var scope = app.Services.CreateScope())
+{
+    await DbSeeder.SeedAsync(scope.ServiceProvider);
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
