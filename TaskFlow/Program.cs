@@ -70,6 +70,10 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 // AddTransient: her istendiğinde yeni bir nesne oluşturulur (servis durumsuz olduğu için uygun)
 builder.Services.AddTransient<IEmailService, SmtpEmailService>();
 
+// Ekip yetki servisi. Scoped: AppDbContext'e bağlı olduğu için onunla aynı ömürde
+// (her HTTP isteği için bir tane) olmalı.
+builder.Services.AddScoped<ITeamAuthorizationService, TeamAuthorizationService>();
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
@@ -99,6 +103,8 @@ app.UseAuthentication(); // kimsin ?
 app.UseAuthorization(); // yetkin var mı ?
 
 app.MapStaticAssets();
+
+
 
 app.MapControllerRoute(
     name: "default",

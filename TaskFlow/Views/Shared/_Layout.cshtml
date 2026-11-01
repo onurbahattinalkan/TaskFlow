@@ -26,6 +26,13 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
+                                                @* Giriş yapmış herkes kendi ekiplerini görebilir *@
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Teams" asp-action="Index">Ekiplerim</a>
+                            </li>
+                        }
                                                 @* 1. katman (arayüz): link sadece Admin'e görünür.
                            Asıl güvenlik AdminController'daki [Authorize] etiketinde. *@
                         @if (User.IsInRole(AppRoles.Admin))
