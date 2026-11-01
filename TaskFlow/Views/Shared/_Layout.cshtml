@@ -32,6 +32,10 @@
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-controller="Teams" asp-action="Index">Ekiplerim</a>
                             </li>
+                            @* Giriş yapmış herkes projeleri görebilir *@
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Projects" asp-action="Index">Projeler</a>
+                            </li>
                         }
                                                 @* 1. katman (arayüz): link sadece Admin'e görünür.
                            Asıl güvenlik AdminController'daki [Authorize] etiketinde. *@

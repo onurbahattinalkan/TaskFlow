@@ -1,0 +1,66 @@
+@model TaskFlow.Models.Project
+
+@{
+    ViewData["Title"] = "Projeyi Düzenle";
+}
+
+<h1>Projeyi Düzenle</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        @* POST /Projects/Edit/{id}'ye gönderir *@
+        <form asp-action="Edit" method="post">
+
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            @* Gizli alan: hangi projeyi düzenlediğimizi POST'a taşır *@
+            <input type="hidden" asp-for="Id" />
+
+            @* Proje adı *@
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+
+            @* Açıklama *@
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label"></label>
+                <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+
+            @* Tarihler *@
+            <div class="row">
+                <div class="col mb-3">
+                    <label asp-for="StartDate" class="form-label"></label>
+                    <input asp-for="StartDate" type="date" class="form-control" />
+                    <span asp-validation-for="StartDate" class="text-danger"></span>
+                </div>
+                <div class="col mb-3">
+                    <label asp-for="EndDate" class="form-label"></label>
+                    <input asp-for="EndDate" type="date" class="form-control" />
+                    <span asp-validation-for="EndDate" class="text-danger"></span>
+                </div>
+            </div>
+
+            @* Ekip seçimi: projenin mevcut ekibi seçili gelir *@
+            <div class="mb-3">
+                <label asp-for="TeamId" class="form-label"></label>
+                <select asp-for="TeamId" asp-items="ViewBag.Teams" class="form-select">
+                    <option value="">-- Ekip seçin --</option>
+                </select>
+                <span asp-validation-for="TeamId" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+            <a asp-action="Index" class="btn btn-secondary">Vazgeç</a>
+        </form>
+    </div>
+</div>
+
+@* Doğrulama scriptleri: hataları sayfa yenilenmeden gösterir
+   (_Layout'taki "Scripts" bölümüne yerleşir) *@
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

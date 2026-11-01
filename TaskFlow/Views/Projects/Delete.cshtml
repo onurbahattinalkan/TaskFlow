@@ -1,0 +1,48 @@
+@model TaskFlow.Models.Project
+
+@{
+    ViewData["Title"] = "Projeyi Sil";
+
+    // Controller'dan gelen görev sayısı
+    var taskCount = (int)ViewBag.TaskCount;
+}
+
+<h1>Projeyi Sil</h1>
+
+<div class="alert alert-danger">
+    Bu projeyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+</div>
+
+@* Projenin görevleri varsa ek uyarı göster *@
+@if (taskCount > 0)
+{
+    <div class="alert alert-warning">
+        Bu projeye ait <strong>@taskCount görev</strong> (ve görevlerin yorumları) da silinecek.
+    </div>
+}
+
+@* Silinecek projenin bilgileri *@
+<dl class="row">
+    <dt class="col-sm-3">@Html.DisplayNameFor(m => m.Name)</dt>
+    <dd class="col-sm-9">@Model.Name</dd>
+
+    <dt class="col-sm-3">@Html.DisplayNameFor(m => m.Team)</dt>
+    <dd class="col-sm-9">@Model.Team?.Name</dd>
+
+    <dt class="col-sm-3">@Html.DisplayNameFor(m => m.Description)</dt>
+    <dd class="col-sm-9">@Model.Description</dd>
+
+    <dt class="col-sm-3">@Html.DisplayNameFor(m => m.StartDate)</dt>
+    <dd class="col-sm-9">@Model.StartDate?.ToString("dd.MM.yyyy")</dd>
+
+    <dt class="col-sm-3">@Html.DisplayNameFor(m => m.EndDate)</dt>
+    <dd class="col-sm-9">@Model.EndDate?.ToString("dd.MM.yyyy")</dd>
+</dl>
+
+@* Silme formu: POST /Projects/Delete/{id}, anti-forgery token otomatik eklenir *@
+<form asp-action="Delete" method="post">
+    @* Silinecek projenin id'si *@
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Evet, Sil</button>
+    <a asp-action="Index" class="btn btn-secondary">Vazgeç</a>
+</form>

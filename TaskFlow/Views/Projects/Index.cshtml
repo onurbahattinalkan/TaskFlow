@@ -1,0 +1,51 @@
+@* Bu sayfa bir proje listesi alır *@
+@model IEnumerable<TaskFlow.Models.Project>
+
+@{
+    ViewData["Title"] = "Projeler";
+}
+
+@* Başlık ve "Yeni Proje" butonu yan yana *@
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Projeler</h1>
+    <a asp-action="Create" class="btn btn-primary">+ Yeni Proje</a>
+</div>
+
+@* Hiç proje yoksa bilgi mesajı, varsa tablo göster *@
+@if (!Model.Any())
+{
+    <div class="alert alert-info">Henüz proje yok.</div>
+}
+else
+{
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                @* Sütun başlıkları modeldeki [Display(Name = ...)] değerlerinden gelir *@
+                <th>@Html.DisplayNameFor(m => m.Name)</th>
+                <th>@Html.DisplayNameFor(m => m.Team)</th>
+                <th>@Html.DisplayNameFor(m => m.StartDate)</th>
+                <th>@Html.DisplayNameFor(m => m.EndDate)</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in Model)
+            {
+                <tr>
+                    <td>@p.Name</td>
+                    @* Ekip adı (Include sayesinde dolu gelir) *@
+                    <td>@p.Team?.Name</td>
+                    @* Tarihler boş olabilir, doluysa gün.ay.yıl biçiminde yaz *@
+                    <td>@p.StartDate?.ToString("dd.MM.yyyy")</td>
+                    <td>@p.EndDate?.ToString("dd.MM.yyyy")</td>
+                    @* Düzenle / Sil linkleri, proje Id'sini adrese ekler (/Projects/Edit/5) *@
+                    <td class="text-end">
+                        <a asp-action="Edit" asp-route-id="@p.Id" class="btn btn-sm btn-outline-secondary">Düzenle</a>
+                        <a asp-action="Delete" asp-route-id="@p.Id" class="btn btn-sm btn-outline-danger">Sil</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
