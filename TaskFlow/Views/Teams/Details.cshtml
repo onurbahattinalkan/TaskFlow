@@ -25,6 +25,11 @@
                     <th>Ad Soyad</th>
                     <th>Rol</th>
                     <th>Katılma</th>
+                                        @* İşlem sütunu sadece lidere görünür *@
+                    @if (Model.CanManage)
+                    {
+                        <th class="text-end">İşlem</th>
+                    }
                 </tr>
             </thead>
             <tbody>
@@ -39,6 +44,24 @@
                             </span>
                         </td>
                         <td class="small">@m.JoinedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                                    @if (Model.CanManage)
+                        {
+                            <td class="text-end">
+                                @* Sadece "Üye" olanlara buton; liderin kendisine gerek yok *@
+                                @if (m.TeamRole != TeamRoles.Leader)
+                                {
+                                    @* Durumu değiştiren işlem → POST formu (CSRF token'ı otomatik eklenir).
+                                       onsubmit/confirm: geri alınması zor olduğu için tarayıcı onay sorsun;
+                                       "İptal"e basılırsa false döner ve form gönderilmez. *@
+                                    <form asp-action="TransferLeadership" method="post" class="d-inline"
+                                          onsubmit="return confirm('Liderliği @m.UserName kullanıcısına devretmek istediğinize emin misiniz? Siz üye olacaksınız.');">
+                                        <input type="hidden" name="teamId" value="@Model.TeamId" />
+                                        <input type="hidden" name="newLeaderUserId" value="@m.UserId" />
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Lider yap</button>
+                                    </form>
+                                }
+                            </td>
+                        }
                     </tr>
                 }
             </tbody>

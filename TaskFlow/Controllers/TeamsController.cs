@@ -208,4 +208,56 @@ public class TeamsController : Controller
         TempData["Success"] = $"{userToAdd.UserName} ekibe üye olarak eklendi.";
         return RedirectToAction(nameof(Details), new { id = model.TeamId });
     }
+
+    // ------------------------------------------------------------------
+    // POST /Teams/TransferLeadership  → liderliği başka bir üyeye devret
+    // ------------------------------------------------------------------
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> TransferLeadership(int teamId, string newLeaderUserId)
+    {
+        // 1) Sadece mevcut lider (veya sistem Admin'i) devredebilir
+        if (!await _teamAuth.IsLeaderAsync(User, teamId))
+            return Forbid();
+
+        // 2) Hedef kişi bu ekibin üyesi mi? (ekip dışından birine liderlik verilemez)
+        var newLeader = await _context.TeamMembers
+            .Include(m => m.User) // mesajda kullanıcı adını göstermek için
+            .FirstOrDefaultAsync(m => m.TeamId == teamId && m.UserId == newLeaderUserId);
+
+        if (newLeader == null)
+        {
+            TempData["Error"] = "Seçilen kişi bu ekibin üyesi değil.";
+            return RedirectToAction(nameof(Details), new { id = teamId });
+        }
+
+        // 3) Zaten lider mi?
+        if (newLeader.TeamRole == TeamRoles.Leader)
+        {
+            TempData["Error"] = $"{newLeader.User.UserName} zaten ekibin lideri.";
+            return RedirectToAction(nameof(Details), new { id = teamId });
+        }
+
+        // 4) Ekipte şu an Lider olan kayıt(lar)ı bul ve Üye yap.
+        //    İsteği yapan kişiyi değil "ekipteki lideri" arıyoruz: Admin devrettiğinde de doğru çalışsın.
+        var currentLeaders = await _context.TeamMembers
+            .Where(m => m.TeamId == teamId && m.TeamRole == TeamRoles.Leader)
+            .ToListAsync();
+
+        foreach (var leader in currentLeaders)
+            leader.TeamRole = TeamRoles.Member;
+
+        // 5) Yeni lideri ata
+        newLeader.TeamRole = TeamRoles.Leader;
+
+        // 6) TEK SaveChanges = TEK transaction:
+        //    "lidersiz ekip" ya da "iki liderli ekip" ara durumu asla kalıcı olmaz.
+        //    (EF, ToListAsync ile çektiğimiz nesnelerdeki değişiklikleri kendisi takip eder,
+        //     ayrıca Update çağırmamıza gerek yok.)
+        await _context.SaveChangesAsync();
+
+        TempData["Success"] = $"Liderlik {newLeader.User.UserName} kullanıcısına devredildi.";
+        return RedirectToAction(nameof(Details), new { id = teamId });
+    }
 }
+
