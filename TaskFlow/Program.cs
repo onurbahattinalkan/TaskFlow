@@ -6,8 +6,9 @@ using TaskFlow.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
+//veritabanının nerede ve ona nasıl bağlanılacağını belirtir
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+//AppDbContext'i uygulamaya tanıtır ve veritabanı bağlantısını yapılandırır
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 
 // ASP.NET Identity: kullanıcı + rol sistemini açıyoruz.
@@ -70,10 +71,22 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 // AddTransient: her istendiğinde yeni bir nesne oluşturulur (servis durumsuz olduğu için uygun)
 builder.Services.AddTransient<IEmailService, SmtpEmailService>();
 
+// Ekip yetki servisi. Scoped: AppDbContext'e bağlı olduğu için onunla aynı ömürde
+// (her HTTP isteği için bir tane) olmalı.
+builder.Services.AddScoped<ITeamAuthorizationService, TeamAuthorizationService>();
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
+
+// Açılışta rolleri ve admin hesabını oluştur.
+// UserManager/RoleManager "scoped" servislerdir: normalde her HTTP isteği için bir tane oluşur.
+// Şu an bir istek olmadığı için geçici bir scope (kapsam) açıp servisleri onun içinden alıyoruz.
+using (var scope = app.Services.CreateScope())
+{
+    await DbSeeder.SeedAsync(scope.ServiceProvider);
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -91,6 +104,8 @@ app.UseAuthentication(); // kimsin ?
 app.UseAuthorization(); // yetkin var mı ?
 
 app.MapStaticAssets();
+
+
 
 app.MapControllerRoute(
     name: "default",

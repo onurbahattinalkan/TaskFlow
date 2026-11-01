@@ -81,6 +81,10 @@ public class AccountController : Controller
             return View(model);
         }
 
+        // Kayıt olan herkes "User" rolüyle başlar.
+        // (Admin rolü sadece seed ile verilir; kayıt formundan Admin olunamaz.)
+        await _userManager.AddToRoleAsync(user, AppRoles.User);
+
         // 4) Onay mailini gönder
         await SendConfirmationEmailAsync(user);
 
@@ -218,6 +222,16 @@ public class AccountController : Controller
     {
         await _signInManager.SignOutAsync();
         return RedirectToAction("Index", "Home");
+    }
+
+    // ------------------------------------------------------------------
+    // GET /Account/AccessDenied  → giriş yapmış ama yetkisi olmayan kullanıcı buraya düşer
+    // (Program.cs'teki AccessDeniedPath ayarı ve controller'lardaki Forbid() buraya yönlendirir)
+    // ------------------------------------------------------------------
+    [HttpGet]
+    public IActionResult AccessDenied()
+    {
+        return View();
     }
     // ------------------------------------------------------------------
     // Yardımcı metot: onay linkini üretip mail atar.

@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TaskFlow.Models;
 
+//bizim uygulamamızda bir yorum (Comment) sınıfını temsil eder. Bu sınıf, yorumun temel bilgilerini ve ilişkili varlıkları içerir.
 public class Comment
 {
     public int Id { get; set; }

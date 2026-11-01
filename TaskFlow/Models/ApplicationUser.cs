@@ -3,7 +3,13 @@ using Microsoft.AspNetCore.Identity;
 
 namespace TaskFlow.Models;
 
-// Users tablosu: Identity'nin AspNetUsers tablosu bu sınıfa karşılık gelir.
+/*bu sınıf IdentityUser’ın tüm özelliklerini miras alır” demektir. IdentityUser ASP.NET Identity’nin hazır kullanıcı sınıfıdır:
+Id (string, GUID metni)
+UserName
+Email
+PasswordHash (şifrenin kendisi değil, şifrelenmiş hali)
+PhoneNumber gibi alanlar
+*/
 public class ApplicationUser : IdentityUser
 {
     [Required(ErrorMessage = "Ad soyad zorunludur.")]
