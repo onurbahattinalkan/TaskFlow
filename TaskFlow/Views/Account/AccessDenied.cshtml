@@ -1,0 +1,24 @@
+@{
+    ViewData["Title"] = "Erişim Reddedildi";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm text-center">
+            <div class="card-body p-4">
+                <h2 class="h4 mb-3 text-danger">⛔ Erişim reddedildi</h2>
+
+                @* Giriş yapmış kullanıcı buraya düşer; kim olduğunu gösterelim ki
+                   "yanlış hesapla mı girdim?" diye kontrol edebilsin *@
+                <p>
+                    <strong>@User.Identity?.Name</strong> hesabının bu sayfayı görüntüleme yetkisi yok.
+                </p>
+                <p class="text-muted small">
+                    Yetkiniz olması gerektiğini düşünüyorsanız ekip lideriniz ya da sistem yöneticisiyle iletişime geçin.
+                </p>
+
+                <a asp-controller="Home" asp-action="Index" class="btn btn-primary">Ana sayfaya dön</a>
+            </div>
+        </div>
+    </div>
+</div>

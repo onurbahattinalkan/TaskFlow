@@ -219,6 +219,16 @@ public class AccountController : Controller
         await _signInManager.SignOutAsync();
         return RedirectToAction("Index", "Home");
     }
+
+    // ------------------------------------------------------------------
+    // GET /Account/AccessDenied  → giriş yapmış ama yetkisi olmayan kullanıcı buraya düşer
+    // (Program.cs'teki AccessDeniedPath ayarı ve controller'lardaki Forbid() buraya yönlendirir)
+    // ------------------------------------------------------------------
+    [HttpGet]
+    public IActionResult AccessDenied()
+    {
+        return View();
+    }
     // ------------------------------------------------------------------
     // Yardımcı metot: onay linkini üretip mail atar.
     // private: dışarıdan adresle çağrılamaz, sadece bu controller kullanır.
