@@ -16,4 +16,6 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Project> Projects => Set<Project>(); 
     public DbSet<TaskItem> Tasks => Set<TaskItem>();
     public DbSet<Comment> Comments => Set<Comment>();
+    //kategori tablosu için DbSet
+    public DbSet<Category> Categories => Set<Category>();
 }
