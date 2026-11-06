@@ -6,6 +6,7 @@ using TaskFlow.Helpers;
 using TaskFlow.Models;
 using TaskFlow.Services;
 using TaskFlow.ViewModels;
+using System.Security.Claims;
 
 namespace TaskFlow.Controllers;
 
@@ -38,6 +39,64 @@ public class TasksController : Controller
             return RedirectToAction("My", new { projectId });
 
         var model = await BuildManageModelAsync(project, new TaskCreateViewModel { ProjectId = project.Id });
+        return View(model);
+    }
+
+    // GET: /Tasks/My?projectId=1  →  Giriş yapan kişinin Kanban panosu
+    public async Task<IActionResult> My(int projectId)
+    {
+        var project = await FindProjectAsync(projectId);
+        if (project == null)
+            return NotFound();
+
+        // Ekip üyesi (ya da Admin) olmalı
+        if (!await _teamAuth.IsMemberAsync(User, project.TeamId))
+            return Forbid();
+
+        // Giriş yapan kullanıcının Id'si
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        // SADECE bu kişinin bu projedeki atamaları
+        var rows = await _context.TaskAssignments
+            .Where(a => a.UserId == userId && a.TaskItem!.ProjectId == project.Id)
+            .Select(a => new TaskListRow
+            {
+                TaskId = a.TaskItemId,
+                AssignmentId = a.Id,
+                Title = a.TaskItem!.Title,
+                Description = a.TaskItem.Description,
+                CategoryName = a.TaskItem.Category!.Name,
+                CategoryColor = a.TaskItem.Category.Color,
+                DueDate = a.DueDate,
+                AssignedAt = a.AssignedAt,
+                CreatedAt = a.TaskItem.CreatedAt,
+                Status = a.Status
+            })
+            .ToListAsync();
+
+        // Varsayılan sıralama: deadline artan, eşitse önce oluşturulan üstte
+        rows = rows.OrderBy(r => r.DueDate).ThenBy(r => r.CreatedAt).ToList();
+
+        // Sol menü: "Görevlerim" seçili. Görevler sekmesi sadece yöneticiye görünsün.
+        ViewData["ProjectNav"] = new ProjectNavViewModel
+        {
+            ProjectId = project.Id,
+            ProjectName = project.Name,
+            TeamName = project.Team?.Name ?? "",
+            IsManager = await _teamAuth.IsLeaderAsync(User, project.TeamId),
+            ActiveTab = ProjectTabs.MyTasks
+        };
+
+        // Durumlarına göre üç sütuna ayır
+        var model = new KanbanViewModel
+        {
+            ProjectId = project.Id,
+            ProjectName = project.Name,
+            Todo = rows.Where(r => r.Status == TaskItemStatus.Todo).ToList(),
+            InProgress = rows.Where(r => r.Status == TaskItemStatus.InProgress).ToList(),
+            Done = rows.Where(r => r.Status == TaskItemStatus.Done).ToList()
+        };
+
         return View(model);
     }
 

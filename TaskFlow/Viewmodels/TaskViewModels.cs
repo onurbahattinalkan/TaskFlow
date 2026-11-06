@@ -108,3 +108,13 @@ public class TaskFormModel
     // Düzenleme mi? (id ön eki ve deadline "min" sınırı buna göre değişir)
     public bool IsEdit { get; set; }
 }
+// "Görevlerim" Kanban panosu: giriş yapan kişinin atamaları, üç sütuna ayrılmış
+public class KanbanViewModel
+{
+    public int ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+
+    public List<TaskListRow> Todo { get; set; } = new();        // Atanan
+    public List<TaskListRow> InProgress { get; set; } = new();  // Devam Eden
+    public List<TaskListRow> Done { get; set; } = new();        // Biten
+}
