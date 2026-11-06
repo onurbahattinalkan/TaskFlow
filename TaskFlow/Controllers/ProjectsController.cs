@@ -34,6 +34,105 @@ public class ProjectsController : Controller
         return View(model);
     }
 
+    // GET: /Projects/Details/5  →  Projenin Genel Bakış (dashboard) sayfası
+    public async Task<IActionResult> Details(int? id)
+    {
+        if (id == null)
+            return NotFound();
+
+        // Projeyi ekibiyle birlikte bul
+        var project = await _context.Projects
+            .Include(p => p.Team)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (project == null)
+            return NotFound();
+
+        // Sadece ekip üyeleri (ve Admin) projeyi görebilir
+        if (!await _teamAuth.IsMemberAsync(User, project.TeamId))
+            return Forbid();
+
+        // Yönetici mi? (Lider ya da Admin)
+        var isManager = await _teamAuth.IsLeaderAsync(User, project.TeamId);
+
+        // Giriş yapan kullanıcının Id'si (çerezdeki "NameIdentifier" bilgisi)
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        // Projenin TÜM atamaları, sadece gereken alanlarla (tek SQL sorgusu)
+        var assignments = await _context.TaskAssignments
+            .Where(a => a.TaskItem!.ProjectId == project.Id)
+            .Select(a => new
+            {
+                a.UserId,
+                a.Status,
+                a.DueDate,
+                Title = a.TaskItem!.Title
+            })
+            .ToListAsync();
+
+        // Sadece bu kullanıcının atamaları
+        var mine = assignments.Where(a => a.UserId == userId).ToList();
+
+        var model = new ProjectDashboardViewModel
+        {
+            ProjectId = project.Id,
+            ProjectName = project.Name,
+            TeamName = project.Team?.Name ?? "",
+            Description = project.Description,
+            StartDate = project.StartDate,
+            EndDate = project.EndDate,
+            IsManager = isManager,
+            TaskCount = await _context.Tasks.CountAsync(t => t.ProjectId == project.Id),
+            MemberCount = await _context.TeamMembers.CountAsync(m => m.TeamId == project.TeamId),
+
+            // İstatistikler: (Durum, Deadline) çiftlerinden hesaplanır
+            ProjectStats = StatusStats.From(assignments.Select(a => (a.Status, a.DueDate))),
+            MyStats = StatusStats.From(mine.Select(a => (a.Status, a.DueDate))),
+
+            // Bitmemiş görevlerimden deadline'ı en yakın 5 tanesi
+            MyUpcoming = mine
+                .Where(a => a.Status != TaskItemStatus.Done)
+                .OrderBy(a => a.DueDate)
+                .Take(5)
+                .Select(a => new UpcomingItem { Title = a.Title, DueDate = a.DueDate, Status = a.Status })
+                .ToList()
+        };
+
+        // Ekip üyesi tablosu: SADECE yönetici görür
+        if (isManager)
+        {
+            // Ekibin tüm üyeleri (hiç görevi olmayanlar da listede görünsün)
+            var members = await _context.TeamMembers
+                .Where(m => m.TeamId == project.TeamId)
+                .Select(m => new { m.UserId, m.User.UserName, m.User.FullName })
+                .ToListAsync();
+
+            model.Members = members
+                .Select(m => new MemberProgressRow
+                {
+                    UserName = m.UserName ?? "",
+                    FullName = m.FullName,
+                    Stats = StatusStats.From(assignments
+                        .Where(a => a.UserId == m.UserId)
+                        .Select(a => (a.Status, a.DueDate)))
+                })
+                .OrderByDescending(r => r.Stats.Total)   // en çok görevi olan üstte
+                .ToList();
+        }
+
+        // Sol menü bilgisi (_ProjectLayout okur)
+        ViewData["ProjectNav"] = new ProjectNavViewModel
+        {
+            ProjectId = project.Id,
+            ProjectName = project.Name,
+            TeamName = model.TeamName,
+            IsManager = isManager,
+            ActiveTab = ProjectTabs.Overview
+        };
+
+        return View(model);
+    }
+
     // POST: /Projects/Create  →  Sayfanın altındaki formdan gelir
     // Prefix = "NewProject": formdaki alan adları "NewProject.Name" gibi olduğu için
     [HttpPost]

@@ -1,0 +1,175 @@
+@* Projenin Genel Bakış (dashboard) sayfası *@
+@model ProjectDashboardViewModel
+
+@{
+    ViewData["Title"] = Model.ProjectName;
+    // Sol menülü iskeleti kullan
+    Layout = "_ProjectLayout";
+
+    var ps = Model.ProjectStats;
+    var my = Model.MyStats;
+}
+
+@* ---------- BAŞLIK ---------- *@
+<div class="mb-4">
+    <h2 class="mb-1">@Model.ProjectName</h2>
+    <div class="text-muted small">
+        <span class="badge text-bg-light border">@Model.TeamName</span>
+        @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
+        {
+            <span class="ms-2">📅 @(Model.StartDate?.ToString("dd.MM.yyyy") ?? "?") – @(Model.EndDate?.ToString("dd.MM.yyyy") ?? "?")</span>
+        }
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <p class="mt-2 mb-0">@Model.Description</p>
+    }
+</div>
+
+@* ---------- ÖZET KUTUCUKLARI ---------- *@
+<div class="row row-cols-2 row-cols-lg-4 g-3 mb-4">
+    <div class="col">
+        <div class="stat-tile"><div class="stat-value">@Model.TaskCount</div><div class="stat-label">Görev</div></div>
+    </div>
+    <div class="col">
+        <div class="stat-tile"><div class="stat-value">@ps.Total</div><div class="stat-label">Atama</div></div>
+    </div>
+    <div class="col">
+        <div class="stat-tile"><div class="stat-value">@Model.MemberCount</div><div class="stat-label">Ekip Üyesi</div></div>
+    </div>
+    <div class="col">
+        @* Geciken varsa kırmızı vurgu *@
+        <div class="stat-tile @(ps.Overdue > 0 ? "stat-danger" : "")">
+            <div class="stat-value">@ps.Overdue</div><div class="stat-label">Geciken</div>
+        </div>
+    </div>
+</div>
+
+@* ---------- PROJE GENELİ ---------- *@
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Proje Geneli</div>
+    <div class="card-body">
+        @if (ps.Total == 0)
+        {
+            <p class="text-muted mb-0">Bu projede henüz kimseye görev atanmamış.</p>
+        }
+        else
+        {
+            <div class="row g-4 justify-content-center mb-4">
+                <div class="col-6 col-md-4">
+                    <partial name="_ProgressRing" model='new ProgressRingViewModel(ps.DonePercent, "Tamamlanan", "#198754", $"{ps.Done} / {ps.Total}")' />
+                </div>
+                <div class="col-6 col-md-4">
+                    <partial name="_ProgressRing" model='new ProgressRingViewModel(ps.InProgressPercent, "Devam Eden", "#0d6efd", $"{ps.InProgress} / {ps.Total}")' />
+                </div>
+                <div class="col-6 col-md-4">
+                    <partial name="_ProgressRing" model='new ProgressRingViewModel(ps.TodoPercent, "Başlanmayan", "#6c757d", $"{ps.Todo} / {ps.Total}")' />
+                </div>
+            </div>
+
+            @* Üç durumu tek çubukta yan yana gösteren dağılım çubuğu *@
+            <div class="progress" style="height: 14px;">
+                <div class="progress-bar bg-success" style="width: @(ps.DonePercent)%;" title="Tamamlanan"></div>
+                <div class="progress-bar bg-primary" style="width: @(ps.InProgressPercent)%;" title="Devam eden"></div>
+                <div class="progress-bar bg-secondary" style="width: @(ps.TodoPercent)%;" title="Başlanmayan"></div>
+            </div>
+        }
+    </div>
+</div>
+
+@* ---------- BENİM GÖREVLERİM ---------- *@
+@* Üyeler her zaman görür; yönetici sadece kendine de görev atanmışsa *@
+@if (!Model.IsManager || my.Total > 0)
+{
+    <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+            <span>Benim Görevlerim</span>
+            <a asp-controller="Tasks" asp-action="My" asp-route-projectId="@Model.ProjectId" class="btn btn-sm btn-outline-primary">Panoya git →</a>
+        </div>
+        <div class="card-body">
+            @if (my.Total == 0)
+            {
+                <p class="text-muted mb-0">Bu projede sana atanmış görev yok.</p>
+            }
+            else
+            {
+                <div class="row g-4 align-items-center">
+                    @* Solda: kendi tamamlanma halkam *@
+                    <div class="col-md-4">
+                        <partial name="_ProgressRing" model='new ProgressRingViewModel(my.DonePercent, "Tamamladığım", "#198754", $"{my.Done} / {my.Total} · {my.InProgress} devam ediyor")' />
+                    </div>
+
+                    @* Sağda: yaklaşan deadline'lar *@
+                    <div class="col-md-8">
+                        <div class="fw-semibold mb-2">Yaklaşan deadline'lar</div>
+                        @if (!Model.MyUpcoming.Any())
+                        {
+                            <p class="text-muted mb-0">Bitmemiş görevin yok 🎉</p>
+                        }
+                        else
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var u in Model.MyUpcoming)
+                                {
+                                    var (text, css) = TimeHelper.Remaining(u.DueDate);
+                                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div>@u.Title</div>
+                                            <div class="small text-muted">@TimeHelper.Format(u.DueDate)</div>
+                                        </div>
+                                        <span class="small fw-semibold @css">@text</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@* ---------- EKİP ÜYELERİ (sadece yönetici) ---------- *@
+@if (Model.IsManager)
+{
+    <div class="card shadow-sm">
+        <div class="card-header fw-semibold">Ekip Üyeleri</div>
+        <div class="card-body p-0">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Üye</th>
+                        <th class="text-center">Atanan</th>
+                        <th class="text-center">Devam</th>
+                        <th class="text-center">Biten</th>
+                        <th class="text-center">Geciken</th>
+                        <th style="width: 30%;">İlerleme</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in Model.Members)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">@m.UserName</div>
+                                <div class="small text-muted">@m.FullName</div>
+                            </td>
+                            <td class="text-center">@m.Stats.Total</td>
+                            <td class="text-center">@m.Stats.InProgress</td>
+                            <td class="text-center">@m.Stats.Done</td>
+                            <td class="text-center @(m.Stats.Overdue > 0 ? "text-danger fw-bold" : "")">@m.Stats.Overdue</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height: 8px;">
+                                        <div class="progress-bar bg-success" style="width: @(m.Stats.DonePercent)%;"></div>
+                                    </div>
+                                    <span class="small text-muted">%@m.Stats.DonePercent</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

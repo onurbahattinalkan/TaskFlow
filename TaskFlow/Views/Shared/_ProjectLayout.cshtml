@@ -1,0 +1,52 @@
+@* Proje içi sayfaların ortak iskeleti: solda dikey menü, sağda sayfa içeriği.
+   Ana _Layout'un İÇİNE yerleşir (iç içe layout). *@
+@{
+    Layout = "_Layout";
+
+    // Controller'ın gönderdiği menü bilgisi
+    var nav = ViewData["ProjectNav"] as ProjectNavViewModel;
+
+    // Seçili sekmeye "active" sınıfı veren küçük yardımcı
+    string Active(string tab) => nav?.ActiveTab == tab ? "active" : "";
+}
+
+<div class="row g-4">
+    @* ---------- SOL MENÜ ---------- *@
+    <aside class="col-md-3 col-lg-2">
+        <div class="project-sidebar">
+            <a asp-controller="Projects" asp-action="Index" class="small text-muted text-decoration-none">← Projeler</a>
+
+            <div class="mt-2 mb-3">
+                <div class="fw-semibold">@nav?.ProjectName</div>
+                <div class="small text-muted">@nav?.TeamName</div>
+            </div>
+
+            @* nav-pills + flex-column: Bootstrap'in dikey menüsü *@
+            <nav class="nav nav-pills flex-column gap-1">
+                <a class="nav-link @Active(ProjectTabs.Overview)"
+                   asp-controller="Projects" asp-action="Details" asp-route-id="@nav?.ProjectId">📊 Genel Bakış</a>
+
+                @* Görev listesi + atama: sadece Lider / Admin (4. aşama) *@
+                @if (nav?.IsManager == true)
+                {
+                    <a class="nav-link @Active(ProjectTabs.Tasks)"
+                       asp-controller="Tasks" asp-action="Index" asp-route-projectId="@nav?.ProjectId">📋 Görevler</a>
+                }
+
+                @* Kişinin kendi Kanban panosu: herkes (6. aşama) *@
+                <a class="nav-link @Active(ProjectTabs.MyTasks)"
+                   asp-controller="Tasks" asp-action="My" asp-route-projectId="@nav?.ProjectId">🗂️ Görevlerim</a>
+            </nav>
+        </div>
+    </aside>
+
+    @* ---------- SAYFA İÇERİĞİ ---------- *@
+    <section class="col-md-9 col-lg-10">
+        @RenderBody()
+    </section>
+</div>
+
+@* Sayfanın Scripts bölümünü ana layout'a aktar (yoksa doğrulama/JS kodları kaybolur) *@
+@section Scripts {
+    @await RenderSectionAsync("Scripts", required: false)
+}

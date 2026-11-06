@@ -29,3 +29,72 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+/* ---------- Proje içi sol menü ---------- */
+.project-sidebar {
+    position: sticky; /* sayfa kayarken menü yerinde kalsın */
+    top: 1rem;
+    background: #f8f9fa;
+    border-radius: .75rem;
+    padding: 1rem;
+}
+
+/* ---------- Yuvarlak yüzde halkası ---------- */
+/* --p: yüzde (0-100), --c: renk. conic-gradient daireyi saat yönünde boyar:
+   ilk %p kısmı renkli, kalanı gri. */
+.ring {
+    --p: 0;
+    --c: #198754;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: conic-gradient(var(--c) calc(var(--p) * 1%), #e9ecef 0);
+    display: grid;
+    place-items: center;
+}
+
+    /* Ortadaki beyaz daire → dolu daire "halka"ya dönüşür */
+    .ring::before {
+        content: "";
+        grid-area: 1 / 1;
+        width: 76%;
+        height: 76%;
+        border-radius: 50%;
+        background: #fff;
+    }
+
+    /* Ortadaki yüzde yazısı (beyaz dairenin üstünde) */
+    .ring > span {
+        grid-area: 1 / 1;
+        position: relative;
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+
+/* ---------- Özet kutucukları ---------- */
+.stat-tile {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .75rem;
+    padding: 1rem;
+    text-align: center;
+    height: 100%;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.stat-label {
+    color: #6c757d;
+    font-size: .875rem;
+}
+
+/* Geciken görev varsa kırmızı kutucuk */
+.stat-danger {
+    border-color: #f5c2c7;
+    background: #f8d7da;
+    color: #842029;
+}
