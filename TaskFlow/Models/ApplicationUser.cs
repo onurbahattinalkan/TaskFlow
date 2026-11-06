@@ -20,8 +20,8 @@ public class ApplicationUser : IdentityUser
     // Kullanıcının üyesi olduğu ekipler
     public ICollection<TeamMember> TeamMemberships { get; set; } = new List<TeamMember>();
 
-    // Kullanıcıya atanan görevler
-    public ICollection<TaskItem> AssignedTasks { get; set; } = new List<TaskItem>();
+    // Kullanıcının görev atamaları (her biri: bir görev + kişiye özel deadline/durum)
+    public ICollection<TaskAssignment> Assignments { get; set; } = new List<TaskAssignment>();
 
     // Kullanıcının yazdığı yorumlar
     public ICollection<Comment> Comments { get; set; } = new List<Comment>();

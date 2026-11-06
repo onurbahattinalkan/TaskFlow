@@ -223,6 +223,35 @@ namespace TaskFlow.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("TaskFlow.Models.Category", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Categories");
+                });
+
             modelBuilder.Entity("TaskFlow.Models.Comment", b =>
                 {
                     b.Property<int>("Id")
@@ -288,6 +317,40 @@ namespace TaskFlow.Migrations
                     b.ToTable("Projects");
                 });
 
+            modelBuilder.Entity("TaskFlow.Models.TaskAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TaskItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TaskItemId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("TaskAssignments");
+                });
+
             modelBuilder.Entity("TaskFlow.Models.TaskItem", b =>
                 {
                     b.Property<int>("Id")
@@ -296,8 +359,8 @@ namespace TaskFlow.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AssignedUserId")
-                        .HasColumnType("text");
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -306,13 +369,7 @@ namespace TaskFlow.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
-                    b.Property<DateOnly?>("DueDate")
-                        .HasColumnType("date");
-
                     b.Property<int>("ProjectId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Status")
                         .HasColumnType("integer");
 
                     b.Property<string>("Title")
@@ -322,7 +379,7 @@ namespace TaskFlow.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssignedUserId");
+                    b.HasIndex("CategoryId");
 
                     b.HasIndex("ProjectId");
 
@@ -437,6 +494,17 @@ namespace TaskFlow.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("TaskFlow.Models.Category", b =>
+                {
+                    b.HasOne("TaskFlow.Models.Project", "Project")
+                        .WithMany("Categories")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("TaskFlow.Models.Comment", b =>
                 {
                     b.HasOne("TaskFlow.Models.TaskItem", "TaskItem")
@@ -467,11 +535,32 @@ namespace TaskFlow.Migrations
                     b.Navigation("Team");
                 });
 
+            modelBuilder.Entity("TaskFlow.Models.TaskAssignment", b =>
+                {
+                    b.HasOne("TaskFlow.Models.TaskItem", "TaskItem")
+                        .WithMany("Assignments")
+                        .HasForeignKey("TaskItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TaskFlow.Models.ApplicationUser", "User")
+                        .WithMany("Assignments")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TaskItem");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TaskFlow.Models.TaskItem", b =>
                 {
-                    b.HasOne("TaskFlow.Models.ApplicationUser", "AssignedUser")
-                        .WithMany("AssignedTasks")
-                        .HasForeignKey("AssignedUserId");
+                    b.HasOne("TaskFlow.Models.Category", "Category")
+                        .WithMany("Tasks")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
 
                     b.HasOne("TaskFlow.Models.Project", "Project")
                         .WithMany("Tasks")
@@ -479,7 +568,7 @@ namespace TaskFlow.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("AssignedUser");
+                    b.Navigation("Category");
 
                     b.Navigation("Project");
                 });
@@ -505,20 +594,29 @@ namespace TaskFlow.Migrations
 
             modelBuilder.Entity("TaskFlow.Models.ApplicationUser", b =>
                 {
-                    b.Navigation("AssignedTasks");
+                    b.Navigation("Assignments");
 
                     b.Navigation("Comments");
 
                     b.Navigation("TeamMemberships");
                 });
 
+            modelBuilder.Entity("TaskFlow.Models.Category", b =>
+                {
+                    b.Navigation("Tasks");
+                });
+
             modelBuilder.Entity("TaskFlow.Models.Project", b =>
                 {
+                    b.Navigation("Categories");
+
                     b.Navigation("Tasks");
                 });
 
             modelBuilder.Entity("TaskFlow.Models.TaskItem", b =>
                 {
+                    b.Navigation("Assignments");
+
                     b.Navigation("Comments");
                 });
 
