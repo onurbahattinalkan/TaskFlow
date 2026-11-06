@@ -30,6 +30,8 @@ public class AssigneeInput
 // Yeni görev formunun tamamı
 public class TaskCreateViewModel
 {
+    // 0 → yeni görev, 0'dan büyük → düzenlenen görevin Id'si
+    public int TaskId { get; set; }
     // Hangi projeye ekleniyor (gizli alan)
     public int ProjectId { get; set; }
 
@@ -96,4 +98,13 @@ public class TaskManageViewModel
 
     // Alttaki kişiye göre gruplu liste
     public List<TaskGroup> Groups { get; set; } = new();
+}
+// Ortak form partial'ının (_TaskFormFields) modeli
+public class TaskFormModel
+{
+    public TaskCreateViewModel Form { get; set; } = new();
+    public List<Category> Categories { get; set; } = new();
+
+    // Düzenleme mi? (id ön eki ve deadline "min" sınırı buna göre değişir)
+    public bool IsEdit { get; set; }
 }

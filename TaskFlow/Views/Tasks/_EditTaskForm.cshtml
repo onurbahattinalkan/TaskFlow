@@ -1,0 +1,16 @@
+@* Düzenleme pop-up'ının içeriği. GET /Tasks/Edit/7 ve hatalı POST bunu döner. *@
+@model TaskFormModel
+
+@* Form tag helper anti-forgery token'ı otomatik ekler; fetch ile birlikte gönderilir *@
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Form.TaskId" />
+    <input type="hidden" asp-for="Form.ProjectId" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <partial name="_TaskFormFields" model="Model" />
+
+    <div class="d-flex justify-content-end gap-2 mt-3">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Vazgeç</button>
+        <button type="submit" class="btn btn-primary">Kaydet</button>
+    </div>
+</form>

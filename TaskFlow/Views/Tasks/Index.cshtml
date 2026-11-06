@@ -1,17 +1,12 @@
-@* Yönetici görev sayfası: üstte yeni görev formu, altta kişiye göre gruplu liste *@
+@* Yönetici görev sayfası: üstte yeni görev formu, altta kişiye göre gruplu liste, düzenleme pop-up'ı *@
 @model TaskManageViewModel
 
 @{
     ViewData["Title"] = "Görevler · " + Model.ProjectName;
     Layout = "_ProjectLayout";
 
-    var f = Model.Form;
-
     // Form açık mı gelsin? Hata varsa ya da hiç görev yoksa açık.
     var showForm = !ViewData.ModelState.IsValid || !Model.Groups.Any();
-
-    // Deadline kutusunda geçmiş saat seçilemesin (Türkiye saatine göre "şimdi")
-    var minDue = TimeHelper.ToTurkey(DateTime.UtcNow).ToString("yyyy-MM-ddTHH:mm");
 
     // Durum rozetinin yazısı ve rengi
     (string Text, string Css) StatusBadge(TaskItemStatus s) => s switch
@@ -24,7 +19,6 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">Görevler</h2>
-    @* Formu aç/kapat (Bootstrap collapse) *@
     <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#yeni-gorev">
         + Yeni Görev
     </button>
@@ -40,83 +34,11 @@
                 <input type="hidden" asp-for="Form.ProjectId" />
                 <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-                @* --- Ad ve açıklama --- *@
-                <div class="mb-3">
-                    <label asp-for="Form.Title" class="form-label"></label>
-                    <input asp-for="Form.Title" class="form-control" placeholder="Örn: Giriş sayfası tasarımı" />
-                    <span asp-validation-for="Form.Title" class="text-danger"></span>
-                </div>
-                <div class="mb-3">
-                    <label asp-for="Form.Description" class="form-label"></label>
-                    <textarea asp-for="Form.Description" class="form-control" rows="2"></textarea>
-                    <span asp-validation-for="Form.Description" class="text-danger"></span>
-                </div>
+                @* Ortak alanlar (düzenleme pop-up'ı da aynısını kullanır) *@
+                <partial name="_TaskFormFields"
+                         model='new TaskFormModel { Form = Model.Form, Categories = Model.Categories, IsEdit = false }' />
 
-                @* --- Kategori: mevcut seç YA DA yeni yaz --- *@
-                <div class="row g-3 mb-3">
-                    <div class="col-md-5">
-                        <label asp-for="Form.CategoryId" class="form-label"></label>
-                        <select asp-for="Form.CategoryId" id="category-select" class="form-select"
-                                asp-items="@(new SelectList(Model.Categories, "Id", "Name"))">
-                            <option value="">@(Model.Categories.Any() ? "-- Kategori seçin --" : "Henüz kategori yok →")</option>
-                        </select>
-                        <span asp-validation-for="Form.CategoryId" class="text-danger"></span>
-                    </div>
-                    <div class="col-md-7">
-                        <label asp-for="Form.NewCategoryName" class="form-label">…veya yeni kategori oluştur</label>
-                        <input asp-for="Form.NewCategoryName" id="new-category" class="form-control" placeholder="Örn: Tasarım" />
-                        <span asp-validation-for="Form.NewCategoryName" class="text-danger"></span>
-
-                        @* Renk paleti: gizli radio + renkli yuvarlak *@
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            @foreach (var c in CategoryColors.All)
-                            {
-                                <label class="swatch" title="@c.Value">
-                                    <input type="radio" name="Form.NewCategoryColor" value="@c.Key"
-                                           checked="@(f.NewCategoryColor == c.Key)" />
-                                    <span style="background-color: @c.Key;"></span>
-                                </label>
-                            }
-                        </div>
-                    </div>
-                </div>
-
-                @* --- Atanacak kişiler (Bootstrap toggle butonları) --- *@
-                <div class="mb-2 fw-semibold">Atanacak kişiler</div>
-                <div class="d-flex flex-wrap gap-2 mb-1">
-                    @for (int i = 0; i < f.Assignees.Count; i++)
-                    {
-                        <input type="hidden" asp-for="Form.Assignees[i].UserId" />
-                        @* btn-check: checkbox'ı gizler, hemen arkasındaki label buton gibi görünür *@
-                        <input type="checkbox" asp-for="Form.Assignees[i].Selected"
-                               class="btn-check assignee-check" id="assignee-@i" data-index="@i" />
-                        <label class="btn btn-outline-primary btn-sm" for="assignee-@i" title="@f.Assignees[i].FullName">
-                            @f.Assignees[i].UserName
-                        </label>
-                    }
-                </div>
-                <span asp-validation-for="Form.Assignees" class="text-danger d-block mb-3"></span>
-
-                @* --- Seçilen her kişi için deadline --- *@
-                <div class="mb-3">
-                    <div class="mb-2 fw-semibold">Deadline'lar <span class="fw-normal small text-muted">(ilk girdiğin tarih diğerlerine kopyalanır)</span></div>
-                    <div id="deadline-empty" class="small text-muted">Önce yukarıdan kişi seçin.</div>
-
-                    @for (int i = 0; i < f.Assignees.Count; i++)
-                    {
-                        @* Kişi seçili değilse satır gizli (JavaScript açar/kapatır) *@
-                        <div class="row g-2 align-items-center mb-2 deadline-row @(f.Assignees[i].Selected ? "" : "d-none")" data-index="@i">
-                            <div class="col-sm-3 col-form-label">@f.Assignees[i].UserName</div>
-                            <div class="col-sm-5">
-                                <input asp-for="Form.Assignees[i].DueDate" type="datetime-local"
-                                       class="form-control deadline-input" min="@minDue" />
-                                <span asp-validation-for="Form.Assignees[i].DueDate" class="text-danger small"></span>
-                            </div>
-                        </div>
-                    }
-                </div>
-
-                <button type="submit" class="btn btn-primary">Görevi Oluştur</button>
+                <button type="submit" class="btn btn-primary mt-2">Görevi Oluştur</button>
             </form>
         </div>
     </div>
@@ -126,6 +48,24 @@
 @if (!Model.Groups.Any())
 {
     <div class="alert alert-info">Bu projede henüz görev yok. Yukarıdaki formdan ilk görevi oluştur.</div>
+}
+else
+{
+    @* Toplu işlem çubuğu: Tümünü seç + seçili sayısı + Seçilenleri sil *@
+    <div class="d-flex align-items-center gap-3 mb-2 p-2 bg-light rounded border">
+        <div class="form-check mb-0 ms-1">
+            <input class="form-check-input" type="checkbox" id="select-all" />
+            <label class="form-check-label" for="select-all">Tümünü seç</label>
+        </div>
+        <span class="small text-muted" id="selected-count">0 seçili</span>
+
+        @* Satırlardaki checkbox'lar form="bulk-delete-form" özelliğiyle BU forma bağlı.
+           (Tablonun içinde satır silme formları olduğu için iç içe form kullanamıyoruz.) *@
+        <form id="bulk-delete-form" asp-action="DeleteAssignments" method="post" class="ms-auto">
+            <input type="hidden" name="projectId" value="@Model.ProjectId" />
+            <button type="submit" class="btn btn-sm btn-danger" id="bulk-delete-btn" disabled>Seçilenleri sil</button>
+        </form>
+    </div>
 }
 
 @foreach (var g in Model.Groups)
@@ -142,12 +82,14 @@
             <table class="table align-middle mb-0">
                 <thead class="table-light small">
                     <tr>
+                        <th style="width: 2rem;"></th>
                         <th>Görev</th>
                         <th>Kategori</th>
                         <th>Atanma</th>
                         <th>Deadline</th>
                         <th>Kalan</th>
                         <th>Durum</th>
+                        <th class="text-end">İşlemler</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -155,6 +97,11 @@
                     {
                         var (statusText, statusCss) = StatusBadge(r.Status);
                         <tr>
+                            @* Toplu silme için seçim kutusu: değeri ATAMA Id'si *@
+                            <td>
+                                <input type="checkbox" class="form-check-input row-check"
+                                       name="ids" value="@r.AssignmentId" form="bulk-delete-form" />
+                            </td>
                             <td>
                                 <div class="fw-semibold">@r.Title</div>
                                 @if (!string.IsNullOrWhiteSpace(r.Description))
@@ -177,6 +124,16 @@
                                 }
                             </td>
                             <td><span class="badge @statusCss">@statusText</span></td>
+                            <td class="text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-secondary edit-task-btn"
+                                        data-url="@Url.Action("Edit", new { id = r.TaskId })">Düzenle</button>
+
+                                @* Satır silme: görevi SADECE bu kişiden kaldırır *@
+                                <form asp-action="DeleteAssignment" asp-route-id="@r.AssignmentId" method="post" class="d-inline"
+                                      onsubmit="return confirm('“@r.Title” görevi sadece @g.UserName kişisinden kaldırılacak. Emin misin?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Sil</button>
+                                </form>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -185,53 +142,103 @@
     </div>
 }
 
+@* ================= DÜZENLEME POP-UP'I (içi boş, JavaScript doldurur) ================= *@
+<div class="modal fade" id="editTaskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Görevi Düzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body"></div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/task-form.js" asp-append-version="true"></script>
 
     <script>
-        // Sayfadaki diğer kodlarla karışmasın diye kendi kapsamında çalışır
         (function () {
-            const checks = document.querySelectorAll('.assignee-check');
-            const inputs = document.querySelectorAll('.deadline-input');
-            const rowOf = i => document.querySelector(`.deadline-row[data-index="${i}"]`);
+            // Yeni Görev formunun davranışları
+            initTaskForm(document.getElementById('yeni-gorev'));
+                        // ---------- Toplu seçim ve silme ----------
+            const selectAll = document.getElementById('select-all');
+            if (selectAll) {   // liste boşsa çubuk yok
+                const rowChecks = [...document.querySelectorAll('.row-check')];
+                const countEl = document.getElementById('selected-count');
+                const bulkBtn = document.getElementById('bulk-delete-btn');
+                const bulkForm = document.getElementById('bulk-delete-form');
+                const selectedCount = () => rowChecks.filter(c => c.checked).length;
 
-            // Seçili kişilerin deadline satırlarını göster, diğerlerini gizle
-            function refreshRows() {
-                let anySelected = false;
-                checks.forEach(c => {
-                    rowOf(c.dataset.index).classList.toggle('d-none', !c.checked);
-                    if (c.checked) anySelected = true;
+                // Sayaç, buton ve "Tümünü seç" kutusunun durumunu güncelle
+                function refreshBulk() {
+                    const n = selectedCount();
+                    countEl.textContent = `${n} seçili`;
+                    bulkBtn.disabled = n === 0;
+                    selectAll.checked = n > 0 && n === rowChecks.length;
+                    selectAll.indeterminate = n > 0 && n < rowChecks.length;   // bir kısmı seçiliyse "—"
+                }
+
+                // Tümünü seç / bırak
+                selectAll.addEventListener('change', () => {
+                    rowChecks.forEach(c => c.checked = selectAll.checked);
+                    refreshBulk();
                 });
-                document.getElementById('deadline-empty').classList.toggle('d-none', anySelected);
+                rowChecks.forEach(c => c.addEventListener('change', refreshBulk));
+
+                // Göndermeden önce onay
+                bulkForm.addEventListener('submit', e => {
+                    const n = selectedCount();
+                    const ok = confirm(`Seçilen ${n} atama silinecek. Kimseye atanmış hali kalmayan görevler tamamen silinir. Emin misin?`);
+                    if (!ok) e.preventDefault();
+                });
+
+                refreshBulk();
             }
-            checks.forEach(c => c.addEventListener('change', refreshRows));
 
-            // İlk deadline diğerlerine SADECE BİR KEZ kopyalanır.
-            // (Hatalı formdan dönüldüyse ve zaten bir tarih girilmişse kopyalama tekrar yapılmaz.)
-            let autoFilled = [...inputs].some(i => i.value);
+            const modalEl = document.getElementById('editTaskModal');
+            const modal = new bootstrap.Modal(modalEl);   // Bootstrap'in pop-up nesnesi
+            const body = modalEl.querySelector('.modal-body');
 
-            inputs.forEach(input => {
-                input.addEventListener('change', () => {
-                    if (autoFilled || !input.value) return;
+            // "Düzenle" → formu sunucudan iste, pop-up'a koy
+            document.querySelectorAll('.edit-task-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    body.innerHTML = '<div class="text-center py-4"><div class="spinner-border"></div></div>';
+                    modal.show();
 
-                    // Seçili diğer kişilerin BOŞ deadline kutularını doldur
-                    checks.forEach(c => {
-                        if (!c.checked) return;
-                        const other = rowOf(c.dataset.index).querySelector('.deadline-input');
-                        if (other !== input && !other.value) other.value = input.value;
-                    });
-                    autoFilled = true;
+                    const res = await fetch(btn.dataset.url);
+                    if (!res.ok) {
+                        body.innerHTML = '<div class="alert alert-danger">Görev yüklenemedi.</div>';
+                        return;
+                    }
+                    body.innerHTML = await res.text();
+                    wireEditForm();
                 });
             });
 
-            // Yeni kategori adı yazılınca açılır listeyi pasifleştir (karışıklık olmasın)
-            const newCat = document.getElementById('new-category');
-            const catSelect = document.getElementById('category-select');
-            const syncCategory = () => catSelect.disabled = newCat.value.trim() !== '';
-            newCat.addEventListener('input', syncCategory);
+            // Pop-up'taki formu hazırla ve "Kaydet"i sayfa yenilemeden gönder
+            function wireEditForm() {
+                initTaskForm(body);
+                const form = body.querySelector('form');
 
-            refreshRows();
-            syncCategory();
+                form.addEventListener('submit', async e => {
+                    e.preventDefault();   // normal (sayfa değiştiren) gönderimi engelle
+
+                    // FormData: formdaki tüm alanlar + anti-forgery token
+                    const res = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+
+                    if (res.ok) {
+                        location.reload();   // başarılı → listeyi yenile (yeşil mesaj görünür)
+                    } else if (res.status === 400) {
+                        body.innerHTML = await res.text();   // hatalı → hatalı formu göster
+                        wireEditForm();
+                    } else {
+                        body.innerHTML = `<div class="alert alert-danger">Kaydedilemedi (hata ${res.status}).</div>`;
+                    }
+                });
+            }
         })();
     </script>
 }
