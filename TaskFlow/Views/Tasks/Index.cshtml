@@ -1,0 +1,237 @@
+@* Yönetici görev sayfası: üstte yeni görev formu, altta kişiye göre gruplu liste *@
+@model TaskManageViewModel
+
+@{
+    ViewData["Title"] = "Görevler · " + Model.ProjectName;
+    Layout = "_ProjectLayout";
+
+    var f = Model.Form;
+
+    // Form açık mı gelsin? Hata varsa ya da hiç görev yoksa açık.
+    var showForm = !ViewData.ModelState.IsValid || !Model.Groups.Any();
+
+    // Deadline kutusunda geçmiş saat seçilemesin (Türkiye saatine göre "şimdi")
+    var minDue = TimeHelper.ToTurkey(DateTime.UtcNow).ToString("yyyy-MM-ddTHH:mm");
+
+    // Durum rozetinin yazısı ve rengi
+    (string Text, string Css) StatusBadge(TaskItemStatus s) => s switch
+    {
+        TaskItemStatus.Todo => ("Yapılacak", "text-bg-secondary"),
+        TaskItemStatus.InProgress => ("Devam Ediyor", "text-bg-primary"),
+        _ => ("Tamamlandı", "text-bg-success")
+    };
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Görevler</h2>
+    @* Formu aç/kapat (Bootstrap collapse) *@
+    <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#yeni-gorev">
+        + Yeni Görev
+    </button>
+</div>
+
+<partial name="_TempDataAlerts" />
+
+@* ================= YENİ GÖREV FORMU ================= *@
+<div id="yeni-gorev" class="collapse @(showForm ? "show" : "") mb-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form asp-action="Create" method="post">
+                <input type="hidden" asp-for="Form.ProjectId" />
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                @* --- Ad ve açıklama --- *@
+                <div class="mb-3">
+                    <label asp-for="Form.Title" class="form-label"></label>
+                    <input asp-for="Form.Title" class="form-control" placeholder="Örn: Giriş sayfası tasarımı" />
+                    <span asp-validation-for="Form.Title" class="text-danger"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Form.Description" class="form-label"></label>
+                    <textarea asp-for="Form.Description" class="form-control" rows="2"></textarea>
+                    <span asp-validation-for="Form.Description" class="text-danger"></span>
+                </div>
+
+                @* --- Kategori: mevcut seç YA DA yeni yaz --- *@
+                <div class="row g-3 mb-3">
+                    <div class="col-md-5">
+                        <label asp-for="Form.CategoryId" class="form-label"></label>
+                        <select asp-for="Form.CategoryId" id="category-select" class="form-select"
+                                asp-items="@(new SelectList(Model.Categories, "Id", "Name"))">
+                            <option value="">@(Model.Categories.Any() ? "-- Kategori seçin --" : "Henüz kategori yok →")</option>
+                        </select>
+                        <span asp-validation-for="Form.CategoryId" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-7">
+                        <label asp-for="Form.NewCategoryName" class="form-label">…veya yeni kategori oluştur</label>
+                        <input asp-for="Form.NewCategoryName" id="new-category" class="form-control" placeholder="Örn: Tasarım" />
+                        <span asp-validation-for="Form.NewCategoryName" class="text-danger"></span>
+
+                        @* Renk paleti: gizli radio + renkli yuvarlak *@
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            @foreach (var c in CategoryColors.All)
+                            {
+                                <label class="swatch" title="@c.Value">
+                                    <input type="radio" name="Form.NewCategoryColor" value="@c.Key"
+                                           checked="@(f.NewCategoryColor == c.Key)" />
+                                    <span style="background-color: @c.Key;"></span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @* --- Atanacak kişiler (Bootstrap toggle butonları) --- *@
+                <div class="mb-2 fw-semibold">Atanacak kişiler</div>
+                <div class="d-flex flex-wrap gap-2 mb-1">
+                    @for (int i = 0; i < f.Assignees.Count; i++)
+                    {
+                        <input type="hidden" asp-for="Form.Assignees[i].UserId" />
+                        @* btn-check: checkbox'ı gizler, hemen arkasındaki label buton gibi görünür *@
+                        <input type="checkbox" asp-for="Form.Assignees[i].Selected"
+                               class="btn-check assignee-check" id="assignee-@i" data-index="@i" />
+                        <label class="btn btn-outline-primary btn-sm" for="assignee-@i" title="@f.Assignees[i].FullName">
+                            @f.Assignees[i].UserName
+                        </label>
+                    }
+                </div>
+                <span asp-validation-for="Form.Assignees" class="text-danger d-block mb-3"></span>
+
+                @* --- Seçilen her kişi için deadline --- *@
+                <div class="mb-3">
+                    <div class="mb-2 fw-semibold">Deadline'lar <span class="fw-normal small text-muted">(ilk girdiğin tarih diğerlerine kopyalanır)</span></div>
+                    <div id="deadline-empty" class="small text-muted">Önce yukarıdan kişi seçin.</div>
+
+                    @for (int i = 0; i < f.Assignees.Count; i++)
+                    {
+                        @* Kişi seçili değilse satır gizli (JavaScript açar/kapatır) *@
+                        <div class="row g-2 align-items-center mb-2 deadline-row @(f.Assignees[i].Selected ? "" : "d-none")" data-index="@i">
+                            <div class="col-sm-3 col-form-label">@f.Assignees[i].UserName</div>
+                            <div class="col-sm-5">
+                                <input asp-for="Form.Assignees[i].DueDate" type="datetime-local"
+                                       class="form-control deadline-input" min="@minDue" />
+                                <span asp-validation-for="Form.Assignees[i].DueDate" class="text-danger small"></span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <button type="submit" class="btn btn-primary">Görevi Oluştur</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* ================= KİŞİYE GÖRE GRUPLU LİSTE ================= *@
+@if (!Model.Groups.Any())
+{
+    <div class="alert alert-info">Bu projede henüz görev yok. Yukarıdaki formdan ilk görevi oluştur.</div>
+}
+
+@foreach (var g in Model.Groups)
+{
+    <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <span class="fw-semibold">@g.UserName</span>
+                <span class="small text-muted ms-1">@g.FullName</span>
+            </div>
+            <span class="badge text-bg-light border">@g.Rows.Count görev</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light small">
+                    <tr>
+                        <th>Görev</th>
+                        <th>Kategori</th>
+                        <th>Atanma</th>
+                        <th>Deadline</th>
+                        <th>Kalan</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in g.Rows)
+                    {
+                        var (statusText, statusCss) = StatusBadge(r.Status);
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">@r.Title</div>
+                                @if (!string.IsNullOrWhiteSpace(r.Description))
+                                {
+                                    <div class="small text-muted">@(r.Description.Length > 80 ? r.Description[..80] + "…" : r.Description)</div>
+                                }
+                            </td>
+                            <td><span class="badge" style="background-color: @r.CategoryColor;">@r.CategoryName</span></td>
+                            <td class="small">@TimeHelper.Format(r.AssignedAt)</td>
+                            <td class="small">@TimeHelper.Format(r.DueDate)</td>
+                            <td class="small">
+                                @if (r.Status == TaskItemStatus.Done)
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                                else
+                                {
+                                    var (remText, remCss) = TimeHelper.Remaining(r.DueDate);
+                                    <span class="fw-semibold @remCss">@remText</span>
+                                }
+                            </td>
+                            <td><span class="badge @statusCss">@statusText</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        // Sayfadaki diğer kodlarla karışmasın diye kendi kapsamında çalışır
+        (function () {
+            const checks = document.querySelectorAll('.assignee-check');
+            const inputs = document.querySelectorAll('.deadline-input');
+            const rowOf = i => document.querySelector(`.deadline-row[data-index="${i}"]`);
+
+            // Seçili kişilerin deadline satırlarını göster, diğerlerini gizle
+            function refreshRows() {
+                let anySelected = false;
+                checks.forEach(c => {
+                    rowOf(c.dataset.index).classList.toggle('d-none', !c.checked);
+                    if (c.checked) anySelected = true;
+                });
+                document.getElementById('deadline-empty').classList.toggle('d-none', anySelected);
+            }
+            checks.forEach(c => c.addEventListener('change', refreshRows));
+
+            // İlk deadline diğerlerine SADECE BİR KEZ kopyalanır.
+            // (Hatalı formdan dönüldüyse ve zaten bir tarih girilmişse kopyalama tekrar yapılmaz.)
+            let autoFilled = [...inputs].some(i => i.value);
+
+            inputs.forEach(input => {
+                input.addEventListener('change', () => {
+                    if (autoFilled || !input.value) return;
+
+                    // Seçili diğer kişilerin BOŞ deadline kutularını doldur
+                    checks.forEach(c => {
+                        if (!c.checked) return;
+                        const other = rowOf(c.dataset.index).querySelector('.deadline-input');
+                        if (other !== input && !other.value) other.value = input.value;
+                    });
+                    autoFilled = true;
+                });
+            });
+
+            // Yeni kategori adı yazılınca açılır listeyi pasifleştir (karışıklık olmasın)
+            const newCat = document.getElementById('new-category');
+            const catSelect = document.getElementById('category-select');
+            const syncCategory = () => catSelect.disabled = newCat.value.trim() !== '';
+            newCat.addEventListener('input', syncCategory);
+
+            refreshRows();
+            syncCategory();
+        })();
+    </script>
+}

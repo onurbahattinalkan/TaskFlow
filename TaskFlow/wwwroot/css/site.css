@@ -98,3 +98,23 @@ body {
     background: #f8d7da;
     color: #842029;
 }
+
+/* ---------- Kategori renk paleti ---------- */
+.swatch input {
+    display: none; /* radio düğmesini gizle */
+}
+
+.swatch span {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 1px #ced4da;
+}
+
+/* Seçili renk koyu halkayla belirginleşsin */
+.swatch input:checked + span {
+    box-shadow: 0 0 0 2px #212529;
+}
