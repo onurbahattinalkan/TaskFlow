@@ -7,6 +7,13 @@
 @* Create'ten yönlendirildiysek başarı mesajını bir kez göster *@
 <partial name="_TempDataAlerts" />
 
+@* Sayfa başlığı (solda) + yeni ekip butonu (sağda) *@
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="h4 mb-0">Ekiplerim</h2>
+    @* Yeni ekip kurma sayfasına (GET /Teams/Create) giden buton *@
+    <a asp-action="Create" class="btn btn-primary">+ Yeni Ekip</a>
+</div>
+
 @if (Model.Count == 0)
 {
     @* Boş durum: kullanıcıya ne yapacağını söyle *@
