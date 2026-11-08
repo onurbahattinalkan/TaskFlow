@@ -1,0 +1,27 @@
+@* Yeni kategori ekleme *@
+@model CategoryFormViewModel
+
+@{
+    ViewData["Title"] = "Yeni Kategori";
+    Layout = "_ProjectLayout";
+}
+
+<h2 class="mb-3">Yeni Kategori</h2>
+
+<div class="card shadow-sm" style="max-width: 560px;">
+    <div class="card-body">
+        <form asp-action="Create" method="post">
+            <input type="hidden" asp-for="ProjectId" />
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <partial name="_CategoryForm" model="Model" />
+
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+            <a asp-action="Index" asp-route-projectId="@Model.ProjectId" class="btn btn-secondary">Vazgeç</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

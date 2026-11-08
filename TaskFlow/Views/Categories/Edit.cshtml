@@ -1,0 +1,28 @@
+@* Kategori düzenleme *@
+@model CategoryFormViewModel
+
+@{
+    ViewData["Title"] = "Kategoriyi Düzenle";
+    Layout = "_ProjectLayout";
+}
+
+<h2 class="mb-3">Kategoriyi Düzenle</h2>
+
+<div class="card shadow-sm" style="max-width: 560px;">
+    <div class="card-body">
+        @* POST /Categories/Edit/{Id} *@
+        <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+            <input type="hidden" asp-for="Id" />
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <partial name="_CategoryForm" model="Model" />
+
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+            <a asp-action="Index" asp-route-projectId="@Model.ProjectId" class="btn btn-secondary">Vazgeç</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

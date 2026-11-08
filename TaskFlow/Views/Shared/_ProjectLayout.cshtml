@@ -26,14 +26,17 @@
                 <a class="nav-link @Active(ProjectTabs.Overview)"
                    asp-controller="Projects" asp-action="Details" asp-route-id="@nav?.ProjectId">📊 Genel Bakış</a>
 
-                @* Görev listesi + atama: sadece Lider / Admin (4. aşama) *@
+                @* Görev listesi + atama ve kategori yönetimi: sadece Lider / Admin *@
                 @if (nav?.IsManager == true)
                 {
                     <a class="nav-link @Active(ProjectTabs.Tasks)"
                        asp-controller="Tasks" asp-action="Index" asp-route-projectId="@nav?.ProjectId">📋 Görevler</a>
+
+                    <a class="nav-link @Active(ProjectTabs.Categories)"
+                       asp-controller="Categories" asp-action="Index" asp-route-projectId="@nav?.ProjectId">🏷️ Kategoriler</a>
                 }
 
-                @* Kişinin kendi Kanban panosu: herkes (6. aşama) *@
+                @* Kişinin kendi Kanban panosu: herkes *@
                 <a class="nav-link @Active(ProjectTabs.MyTasks)"
                    asp-controller="Tasks" asp-action="My" asp-route-projectId="@nav?.ProjectId">🗂️ Görevlerim</a>
             </nav>

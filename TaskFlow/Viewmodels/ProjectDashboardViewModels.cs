@@ -8,6 +8,7 @@ public static class ProjectTabs
     public const string Overview = "overview";   // Genel Bakış
     public const string Tasks = "tasks";         // Görevler (yönetici listesi)
     public const string MyTasks = "mytasks";     // Görevlerim (Kanban)
+    public const string Categories = "categories"; // Kategoriler (yönetici)
 }
 
 // Sol menünün ihtiyaç duyduğu bilgiler. Controller ViewData["ProjectNav"] ile gönderir.

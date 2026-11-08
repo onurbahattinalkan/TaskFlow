@@ -1,0 +1,51 @@
+@* Ekleme ve düzenleme formunun ORTAK alanları: ad + renk paleti + canlı önizleme *@
+@model CategoryFormViewModel
+
+@* Önizleme: rozet, yazılan ad ve seçilen renkle anında güncellenir *@
+<div class="mb-3">
+    <span class="form-label d-block">Önizleme</span>
+    <span id="category-preview" class="badge fs-6" style="background-color: @Model.Color;">
+        @(string.IsNullOrWhiteSpace(Model.Name) ? "Kategori" : Model.Name)
+    </span>
+</div>
+
+@* Kategori adı *@
+<div class="mb-3">
+    <label asp-for="Name" class="form-label"></label>
+    <input asp-for="Name" class="form-control" id="category-name" placeholder="Örn: Hata" />
+    <span asp-validation-for="Name" class="text-danger"></span>
+</div>
+
+@* Renk paleti (Onur'un görev formundaki .swatch tasarımıyla aynı) *@
+<div class="mb-3">
+    <label class="form-label d-block">Renk</label>
+    <div class="d-flex flex-wrap gap-2">
+        @foreach (var c in CategoryColors.All)
+        {
+            <label class="swatch" title="@c.Value">
+                <input type="radio" name="Color" value="@c.Key" class="color-radio"
+                       checked="@(Model.Color == c.Key)" />
+                <span style="background-color: @c.Key;"></span>
+            </label>
+        }
+    </div>
+    <span asp-validation-for="Color" class="text-danger"></span>
+</div>
+
+<script>
+    // Ad yazıldıkça ve renk seçildikçe önizleme rozetini güncelle
+    (function () {
+        const preview = document.getElementById('category-preview');
+        const nameInput = document.getElementById('category-name');
+
+        nameInput.addEventListener('input', () => {
+            preview.textContent = nameInput.value.trim() || 'Kategori';
+        });
+
+        document.querySelectorAll('.color-radio').forEach(radio => {
+            radio.addEventListener('change', () => {
+                preview.style.backgroundColor = radio.value;
+            });
+        });
+    })();
+</script>
