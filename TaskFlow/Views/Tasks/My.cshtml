@@ -1,0 +1,58 @@
+@* "Görevlerim": giriş yapan kişinin Kanban panosu (3 sütun) *@
+@model KanbanViewModel
+
+@{
+    ViewData["Title"] = "Görevlerim · " + Model.ProjectName;
+    Layout = "_ProjectLayout";
+
+    // Sütunların tanımı: başlık, durum (sayı olarak), başlık rengi, kartlar
+    var columns = new[]
+    {
+        (Title: "Atanan",     Status: (int)TaskItemStatus.Todo,       Css: "kanban-todo",     Items: Model.Todo),
+        (Title: "Devam Eden", Status: (int)TaskItemStatus.InProgress, Css: "kanban-progress", Items: Model.InProgress),
+        (Title: "Biten",      Status: (int)TaskItemStatus.Done,       Css: "kanban-done",     Items: Model.Done)
+    };
+
+    var total = Model.Todo.Count + Model.InProgress.Count + Model.Done.Count;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Görevlerim</h2>
+    <span class="text-muted small">@total görev</span>
+</div>
+
+<partial name="_TempDataAlerts" />
+
+@if (total == 0)
+{
+    <div class="alert alert-info">Bu projede sana atanmış görev yok.</div>
+}
+
+@* Üç dikey sütun *@
+<div class="row g-3">
+    @foreach (var col in columns)
+    {
+        <div class="col-md-4">
+            <div class="kanban-column-wrap">
+                @* Sütun başlığı + kart sayısı *@
+                <div class="kanban-header @col.Css">
+                    <span>@col.Title</span>
+                    <span class="badge text-bg-light kanban-count">@col.Items.Count</span>
+                </div>
+
+                @* Kartların durduğu alan. data-status: bu sütunun durumu (7. aşamada bırakılan kartın yeni durumu) *@
+                <div class="kanban-column" data-status="@col.Status">
+                    @foreach (var item in col.Items)
+                    {
+                        <partial name="_KanbanCard" model="item" />
+                    }
+
+                    @* Boş sütunda bilgi yazısı *@
+                    <div class="kanban-empty text-center text-muted small py-4 @(col.Items.Any() ? "d-none" : "")">
+                        Görev yok
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

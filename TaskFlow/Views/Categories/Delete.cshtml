@@ -1,0 +1,39 @@
+@* Kategori silme onayı. Görevi olan kategori silinemez. *@
+@model CategoryDeleteViewModel
+
+@{
+    ViewData["Title"] = "Kategoriyi Sil";
+    Layout = "_ProjectLayout";
+}
+
+<h2 class="mb-3">Kategoriyi Sil</h2>
+
+<div class="card shadow-sm" style="max-width: 560px;">
+    <div class="card-body">
+        <p class="mb-3">
+            Kategori: <span class="badge fs-6" style="background-color: @Model.Color;">@Model.Name</span>
+        </p>
+
+        @if (Model.TaskCount > 0)
+        {
+            @* Silinemez: görevler kategorisiz kalırdı (kategori zorunlu alan) *@
+            <div class="alert alert-warning mb-3">
+                Bu kategoride <strong>@Model.TaskCount görev</strong> var, bu yüzden silinemez.
+                Önce Görevler sayfasından bu görevleri başka bir kategoriye taşıyın.
+            </div>
+            <a asp-action="Index" asp-route-projectId="@Model.ProjectId" class="btn btn-secondary">Geri dön</a>
+        }
+        else
+        {
+            <div class="alert alert-danger mb-3">
+                Bu kategoriyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+            </div>
+
+            @* Silme kesinlikle POST + anti-forgery token *@
+            <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+                <button type="submit" class="btn btn-danger">Evet, Sil</button>
+                <a asp-action="Index" asp-route-projectId="@Model.ProjectId" class="btn btn-secondary">Vazgeç</a>
+            </form>
+        }
+    </div>
+</div>

@@ -1,51 +1,151 @@
-@* Bu sayfa bir proje listesi alır *@
-@model IEnumerable<TaskFlow.Models.Project>
+@* Projeler sayfası: üstte proje kartları, altta yeni proje formu *@
+@model ProjectsIndexViewModel
 
 @{
     ViewData["Title"] = "Projeler";
 }
 
-@* Başlık ve "Yeni Proje" butonu yan yana *@
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Projeler</h1>
-    <a asp-action="Create" class="btn btn-primary">+ Yeni Proje</a>
+    <h1 class="mb-0">Projeler</h1>
+    @* Buton sayfanın altındaki forma kaydırır (sadece proje açabilenlere) *@
+    @if (Model.CanCreate)
+    {
+        <a href="#yeni-proje" class="btn btn-primary">+ Yeni Proje</a>
+    }
 </div>
 
-@* Hiç proje yoksa bilgi mesajı, varsa tablo göster *@
-@if (!Model.Any())
+@* Başarı / hata mesajları (TempData) *@
+<partial name="_TempDataAlerts" />
+
+@* ---------- PROJE KARTLARI ---------- *@
+@if (!Model.Projects.Any())
 {
-    <div class="alert alert-info">Henüz proje yok.</div>
+    <div class="alert alert-info">
+        Henüz görebileceğin bir proje yok. Bir ekibe katıl ya da lideri olduğun bir ekip için aşağıdan proje oluştur.
+    </div>
 }
 else
 {
-    <table class="table table-striped align-middle">
-        <thead>
-            <tr>
-                @* Sütun başlıkları modeldeki [Display(Name = ...)] değerlerinden gelir *@
-                <th>@Html.DisplayNameFor(m => m.Name)</th>
-                <th>@Html.DisplayNameFor(m => m.Team)</th>
-                <th>@Html.DisplayNameFor(m => m.StartDate)</th>
-                <th>@Html.DisplayNameFor(m => m.EndDate)</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var p in Model)
-            {
-                <tr>
-                    <td>@p.Name</td>
-                    @* Ekip adı (Include sayesinde dolu gelir) *@
-                    <td>@p.Team?.Name</td>
-                    @* Tarihler boş olabilir, doluysa gün.ay.yıl biçiminde yaz *@
-                    <td>@p.StartDate?.ToString("dd.MM.yyyy")</td>
-                    <td>@p.EndDate?.ToString("dd.MM.yyyy")</td>
-                    @* Düzenle / Sil linkleri, proje Id'sini adrese ekler (/Projects/Edit/5) *@
-                    <td class="text-end">
-                        <a asp-action="Edit" asp-route-id="@p.Id" class="btn btn-sm btn-outline-secondary">Düzenle</a>
-                        <a asp-action="Delete" asp-route-id="@p.Id" class="btn btn-sm btn-outline-danger">Sil</a>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    @* row-cols-*: telefonda 1, tablette 2, geniş ekranda 3 kart yan yana *@
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3 mb-5">
+        @foreach (var p in Model.Projects)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    @* position-relative: kartın gövdesine tıklayınca projeye git (stretched-link),
+                       ama alttaki Düzenle/Sil butonları bu alanın dışında kalsın *@
+                    <div class="card-body position-relative">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                            <h5 class="card-title mb-0">
+                                @* Proje içi sayfa (Genel Bakış) 3. aşamada gelecek *@
+                                <a asp-action="Details" asp-route-id="@p.Id"
+                                   class="stretched-link text-decoration-none text-dark">@p.Name</a>
+                            </h5>
+                            <span class="badge text-bg-light border">@p.TeamName</span>
+                        </div>
+
+                        @* Açıklama varsa ilk 100 karakteri *@
+                        @if (!string.IsNullOrWhiteSpace(p.Description))
+                        {
+                            <p class="card-text text-muted small mb-2">
+                                @(p.Description.Length > 100 ? p.Description[..100] + "…" : p.Description)
+                            </p>
+                        }
+
+                        @* Tarihler (ikisi de boş olabilir) *@
+                        @if (p.StartDate.HasValue || p.EndDate.HasValue)
+                        {
+                            <p class="small mb-3">
+                                📅 @(p.StartDate?.ToString("dd.MM.yyyy") ?? "?") – @(p.EndDate?.ToString("dd.MM.yyyy") ?? "?")
+                            </p>
+                        }
+
+                        @* Görev sayısı + tamamlanma çubuğu *@
+                        <div class="d-flex justify-content-between small text-muted mb-1">
+                            <span>@p.TaskCount görev</span>
+                            <span>%@p.CompletionPercent tamamlandı</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-success" style="width: @(p.CompletionPercent)%;"></div>
+                        </div>
+                    </div>
+
+                    @* Düzenle / Sil: sadece ekip lideri ve Admin görür *@
+                    @if (p.CanManage)
+                    {
+                        <div class="card-footer bg-transparent text-end">
+                            <a asp-action="Edit" asp-route-id="@p.Id" class="btn btn-sm btn-outline-secondary">Düzenle</a>
+                            <a asp-action="Delete" asp-route-id="@p.Id" class="btn btn-sm btn-outline-danger">Sil</a>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@* ---------- YENİ PROJE FORMU ---------- *@
+@if (Model.CanCreate)
+{
+    <div id="yeni-proje" class="card shadow-sm">
+        <div class="card-header fw-semibold">Yeni Proje</div>
+        <div class="card-body">
+            @* POST /Projects/Create; form tag helper anti-forgery token'ı otomatik ekler *@
+            <form asp-action="Create" method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                <div class="row">
+                    @* Proje adı *@
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="NewProject.Name" class="form-label"></label>
+                        <input asp-for="NewProject.Name" class="form-control" />
+                        <span asp-validation-for="NewProject.Name" class="text-danger"></span>
+                    </div>
+
+                    @* Ekip: sadece lideri olunan ekipler listelenir *@
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="NewProject.TeamId" class="form-label"></label>
+                        <select asp-for="NewProject.TeamId" asp-items="Model.LeaderTeams" class="form-select">
+                            <option value="">-- Ekip seçin --</option>
+                        </select>
+                        <span asp-validation-for="NewProject.TeamId" class="text-danger"></span>
+                    </div>
+                </div>
+
+                @* Açıklama *@
+                <div class="mb-3">
+                    <label asp-for="NewProject.Description" class="form-label"></label>
+                    <textarea asp-for="NewProject.Description" class="form-control" rows="2"></textarea>
+                    <span asp-validation-for="NewProject.Description" class="text-danger"></span>
+                </div>
+
+                @* Tarihler yan yana *@
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="NewProject.StartDate" class="form-label"></label>
+                        <input asp-for="NewProject.StartDate" type="date" class="form-control" />
+                        <span asp-validation-for="NewProject.StartDate" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="NewProject.EndDate" class="form-label"></label>
+                        <input asp-for="NewProject.EndDate" type="date" class="form-control" />
+                        <span asp-validation-for="NewProject.EndDate" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Projeyi Oluştur</button>
+            </form>
+        </div>
+    </div>
+}
+else
+{
+    <div class="alert alert-secondary">
+        Proje oluşturmak için bir ekibin lideri olmalısın. <a asp-controller="Teams" asp-action="Create">Yeni ekip kur</a>.
+    </div>
+}
+
+@* İstemci tarafı doğrulama (sayfa yenilenmeden hata gösterir) *@
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
 }

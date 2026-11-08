@@ -17,4 +17,7 @@ public interface ITeamAuthorizationService
     // Zeynep: proje listesini ve "Ekip seç" açılır listesini filtrelemek için.
     // Admin için TÜM ekiplerin Id'leri döner.
     Task<List<int>> GetMemberTeamIdsAsync(ClaimsPrincipal user);
+    // Kişinin LİDERİ olduğu ekiplerin Id'leri (proje oluşturma/düzenleme listesi için).
+    // Admin için TÜM ekiplerin Id'lerini döner.
+    Task<List<int>> GetLeaderTeamIdsAsync(ClaimsPrincipal user);
 }

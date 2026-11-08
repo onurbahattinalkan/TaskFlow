@@ -1,0 +1,15 @@
+@* Yuvarlak yüzde halkası. Kullanım:
+   <partial name="_ProgressRing" model='new ProgressRingViewModel(40, "Tamamlanan", "#198754", "4 / 10")' /> *@
+@model ProgressRingViewModel
+
+<div class="text-center">
+    @* --p: yüzde, --c: renk → CSS'teki conic-gradient bunları kullanır *@
+    <div class="ring mx-auto" style="--p: @Model.Percent; --c: @Model.Color;">
+        <span>%@Model.Percent</span>
+    </div>
+    <div class="fw-semibold mt-2">@Model.Label</div>
+    @if (Model.Caption != null)
+    {
+        <div class="small text-muted">@Model.Caption</div>
+    }
+</div>

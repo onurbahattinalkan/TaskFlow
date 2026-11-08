@@ -1,0 +1,95 @@
+@* Görev formunun ORTAK alanları. Hem "Yeni Görev" formu hem "Düzenle" pop-up'ı kullanır.
+   Aynı sayfada iki form olabileceği için id'lere ön ek veriyoruz; JavaScript sınıflarla (class) çalışır. *@
+@model TaskFormModel
+
+@{
+    var f = Model.Form;
+    var p = Model.IsEdit ? "edit-" : "create-";
+
+    // Yeni görevde geçmiş saat seçilemesin. Düzenlemede sınır yok
+    // (deadline'ı zaten geçmiş görevin diğer alanları düzeltilebilsin).
+    string? minDue = Model.IsEdit ? null : TimeHelper.ToTurkey(DateTime.UtcNow).ToString("yyyy-MM-ddTHH:mm");
+}
+
+@* --- Ad ve açıklama --- *@
+<div class="mb-3">
+    <label for="@(p)title" class="form-label">Görev Adı</label>
+    <input asp-for="Form.Title" id="@(p)title" class="form-control" placeholder="Örn: Giriş sayfası tasarımı" />
+    <span asp-validation-for="Form.Title" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label for="@(p)desc" class="form-label">Açıklama</label>
+    <textarea asp-for="Form.Description" id="@(p)desc" class="form-control" rows="2"></textarea>
+    <span asp-validation-for="Form.Description" class="text-danger"></span>
+</div>
+
+@* --- Kategori: mevcut seç YA DA yeni yaz --- *@
+<div class="row g-3 mb-3">
+    <div class="col-md-5">
+        <label for="@(p)category" class="form-label">Kategori</label>
+        <select asp-for="Form.CategoryId" id="@(p)category" class="form-select category-select"
+                asp-items="@(new SelectList(Model.Categories, "Id", "Name"))">
+            <option value="">@(Model.Categories.Any() ? "-- Kategori seçin --" : "Henüz kategori yok →")</option>
+        </select>
+        <span asp-validation-for="Form.CategoryId" class="text-danger"></span>
+    </div>
+    <div class="col-md-7">
+        <label for="@(p)newcat" class="form-label">…veya yeni kategori oluştur</label>
+        <input asp-for="Form.NewCategoryName" id="@(p)newcat" class="form-control new-category" placeholder="Örn: Tasarım" />
+        <span asp-validation-for="Form.NewCategoryName" class="text-danger"></span>
+
+        @* Renk paleti: gizli radio + renkli yuvarlak *@
+        <div class="d-flex flex-wrap gap-2 mt-2">
+            @foreach (var c in CategoryColors.All)
+            {
+                <label class="swatch" title="@c.Value">
+                    <input type="radio" name="Form.NewCategoryColor" value="@c.Key"
+                           checked="@(f.NewCategoryColor == c.Key)" />
+                    <span style="background-color: @c.Key;"></span>
+                </label>
+            }
+        </div>
+    </div>
+</div>
+
+@* --- Atanacak kişiler --- *@
+<div class="mb-2 fw-semibold">Atanacak kişiler</div>
+<div class="d-flex flex-wrap gap-2 mb-1">
+    @for (int i = 0; i < f.Assignees.Count; i++)
+    {
+        <input type="hidden" asp-for="Form.Assignees[i].UserId" id="@(p)uid-@i" />
+        @* btn-check: checkbox gizlenir, arkasındaki label buton gibi görünür *@
+        <input type="checkbox" asp-for="Form.Assignees[i].Selected"
+               class="btn-check assignee-check" id="@(p)assignee-@i" data-index="@i" />
+        <label class="btn btn-outline-primary btn-sm" for="@(p)assignee-@i" title="@f.Assignees[i].FullName">
+            @f.Assignees[i].UserName
+        </label>
+    }
+</div>
+<span asp-validation-for="Form.Assignees" class="text-danger d-block mb-3"></span>
+
+@* --- Seçilen her kişi için deadline --- *@
+<div class="mb-1">
+    <div class="mb-2 fw-semibold">
+        Deadline'lar
+        @if (!Model.IsEdit)
+        {
+            <span class="fw-normal small text-muted">(ilk girdiğin tarih diğerlerine kopyalanır)</span>
+        }
+    </div>
+    <div class="small text-muted deadline-empty">Önce yukarıdan kişi seçin.</div>
+
+    @for (int i = 0; i < f.Assignees.Count; i++)
+    {
+        <div class="row g-2 align-items-center mb-2 deadline-row @(f.Assignees[i].Selected ? "" : "d-none")" data-index="@i">
+            <div class="col-sm-3 col-form-label">@f.Assignees[i].UserName</div>
+            <div class="col-sm-6">
+                @* asp-format: saniyesiz değer (saniyeli değer tarayıcının "geçersiz değer" uyarısına yol açar) *@
+                <input asp-for="Form.Assignees[i].DueDate" asp-format="{0:yyyy-MM-ddTHH:mm}"
+                       type="datetime-local" id="@(p)due-@i"
+                       class="form-control deadline-input" min="@minDue" />
+                <span asp-validation-for="Form.Assignees[i].DueDate" class="text-danger small"></span>
+            </div>
+        </div>
+    }
+</div>

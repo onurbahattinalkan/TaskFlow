@@ -1,0 +1,36 @@
+@* Kanban panosundaki TEK bir kart. data-id: atama Id'si (7. aşamada sürükle-bırak kullanacak) *@
+@model TaskListRow
+
+<div class="card kanban-card shadow-sm mb-2" data-id="@Model.AssignmentId"
+     style="border-left: 5px solid @Model.CategoryColor;">
+    <div class="card-body p-2">
+        @* Görev adı en üstte *@
+        <div class="fw-semibold mb-1">@Model.Title</div>
+
+        @* Açıklama varsa kısa hali *@
+        @if (!string.IsNullOrWhiteSpace(Model.Description))
+        {
+            <div class="small text-muted mb-2 kanban-desc">@Model.Description</div>
+        }
+
+        @* Kategori rozeti *@
+        <span class="badge mb-2" style="background-color: @Model.CategoryColor;">@Model.CategoryName</span>
+
+        @* Tarihler *@
+        <div class="small text-muted">📌 Atanma: @TimeHelper.Format(Model.AssignedAt)</div>
+        <div class="small text-muted">⏰ Deadline: @TimeHelper.Format(Model.DueDate)</div>
+
+        @* Kalan süre (bitmiş görevde "Tamamlandı") *@
+        <div class="small fw-semibold mt-1">
+            @if (Model.Status == TaskItemStatus.Done)
+            {
+                <span class="text-success">✓ Tamamlandı</span>
+            }
+            else
+            {
+                var (text, css) = TimeHelper.Remaining(Model.DueDate);
+                <span class="@css">@text</span>
+            }
+        </div>
+    </div>
+</div>

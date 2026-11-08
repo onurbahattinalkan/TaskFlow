@@ -43,4 +43,7 @@ public class Project
 
     // Projenin görevleri (Project 1 - N TaskItem)
     public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();
+
+    // Projenin kategorileri (Project 1 - N Category)
+    public ICollection<Category> Categories { get; set; } = new List<Category>();
 }

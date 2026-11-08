@@ -64,4 +64,20 @@ public class TeamAuthorizationService : ITeamAuthorizationService
             .Select(m => m.TeamId)
             .ToListAsync();
     }
+    public async Task<List<int>> GetLeaderTeamIdsAsync(ClaimsPrincipal user)
+    {
+        // Admin: tüm ekiplerde lider sayılır
+        if (user.IsInRole(AppRoles.Admin))
+            return await _context.Teams.Select(t => t.Id).ToListAsync();
+
+        var userId = _userManager.GetUserId(user);
+        if (userId == null)
+            return new List<int>();
+
+        // Kullanıcının "Lider" rolüyle bulunduğu ekip satırları
+        return await _context.TeamMembers
+            .Where(m => m.UserId == userId && m.TeamRole == TeamRoles.Leader)
+            .Select(m => m.TeamId)
+            .ToListAsync();
+    }
 }

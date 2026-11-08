@@ -1,90 +1,186 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using TaskFlow.Data;
 using TaskFlow.Models;
-using Microsoft.AspNetCore.Mvc.Rendering;
+using TaskFlow.Services;
+using TaskFlow.ViewModels;
 
 namespace TaskFlow.Controllers;
 
+// [Authorize]: giriş yapmamış kullanıcı bu controller'ın hiçbir sayfasına giremez → Login'e yönlenir
+[Authorize]
 public class ProjectsController : Controller
 {
     // Veritabanı bağlantımız (Program.cs'te zaten kayıtlı, otomatik gelir)
     private readonly AppDbContext _context;
 
-    public ProjectsController(AppDbContext context)
+    // "Bu kişi bu ekipte ne yapabilir?" sorularının cevabı
+    private readonly ITeamAuthorizationService _teamAuth;
+
+    public ProjectsController(AppDbContext context, ITeamAuthorizationService teamAuth)
     {
         _context = context;
+        _teamAuth = teamAuth;
     }
 
-    // GET: /Projects  →  Proje listesi
+    // GET: /Projects  →  Üstte proje kartları, altta yeni proje formu
     public async Task<IActionResult> Index()
     {
-        var projects = await _context.Projects
-            //projenin ekibini de dahil et
+        // Form boş bir projeyle başlar
+        var model = await BuildIndexModelAsync(new Project());
+        return View(model);
+    }
+
+    // GET: /Projects/Details/5  →  Projenin Genel Bakış (dashboard) sayfası
+    public async Task<IActionResult> Details(int? id)
+    {
+        if (id == null)
+            return NotFound();
+
+        // Projeyi ekibiyle birlikte bul
+        var project = await _context.Projects
             .Include(p => p.Team)
-            //isme göre sıralama
-            .OrderBy(p => p.Name)
-            //listeyi al
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (project == null)
+            return NotFound();
+
+        // Sadece ekip üyeleri (ve Admin) projeyi görebilir
+        if (!await _teamAuth.IsMemberAsync(User, project.TeamId))
+            return Forbid();
+
+        // Yönetici mi? (Lider ya da Admin)
+        var isManager = await _teamAuth.IsLeaderAsync(User, project.TeamId);
+
+        // Giriş yapan kullanıcının Id'si (çerezdeki "NameIdentifier" bilgisi)
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        // Projenin TÜM atamaları, sadece gereken alanlarla (tek SQL sorgusu)
+        var assignments = await _context.TaskAssignments
+            .Where(a => a.TaskItem!.ProjectId == project.Id)
+            .Select(a => new
+            {
+                a.UserId,
+                a.Status,
+                a.DueDate,
+                Title = a.TaskItem!.Title
+            })
             .ToListAsync();
 
-        // Listeyi view'a gönder
-        return View(projects);
+        // Sadece bu kullanıcının atamaları
+        var mine = assignments.Where(a => a.UserId == userId).ToList();
+
+        var model = new ProjectDashboardViewModel
+        {
+            ProjectId = project.Id,
+            ProjectName = project.Name,
+            TeamName = project.Team?.Name ?? "",
+            Description = project.Description,
+            StartDate = project.StartDate,
+            EndDate = project.EndDate,
+            IsManager = isManager,
+            TaskCount = await _context.Tasks.CountAsync(t => t.ProjectId == project.Id),
+            MemberCount = await _context.TeamMembers.CountAsync(m => m.TeamId == project.TeamId),
+
+            // İstatistikler: (Durum, Deadline) çiftlerinden hesaplanır
+            ProjectStats = StatusStats.From(assignments.Select(a => (a.Status, a.DueDate))),
+            MyStats = StatusStats.From(mine.Select(a => (a.Status, a.DueDate))),
+
+            // Bitmemiş görevlerimden deadline'ı en yakın 5 tanesi
+            MyUpcoming = mine
+                .Where(a => a.Status != TaskItemStatus.Done)
+                .OrderBy(a => a.DueDate)
+                .Take(5)
+                .Select(a => new UpcomingItem { Title = a.Title, DueDate = a.DueDate, Status = a.Status })
+                .ToList()
+        };
+
+        // Ekip üyesi tablosu: SADECE yönetici görür
+        if (isManager)
+        {
+            // Ekibin tüm üyeleri (hiç görevi olmayanlar da listede görünsün)
+            var members = await _context.TeamMembers
+                .Where(m => m.TeamId == project.TeamId)
+                .Select(m => new { m.UserId, m.User.UserName, m.User.FullName })
+                .ToListAsync();
+
+            model.Members = members
+                .Select(m => new MemberProgressRow
+                {
+                    UserName = m.UserName ?? "",
+                    FullName = m.FullName,
+                    Stats = StatusStats.From(assignments
+                        .Where(a => a.UserId == m.UserId)
+                        .Select(a => (a.Status, a.DueDate)))
+                })
+                .OrderByDescending(r => r.Stats.Total)   // en çok görevi olan üstte
+                .ToList();
+        }
+
+        // Sol menü bilgisi (_ProjectLayout okur)
+        ViewData["ProjectNav"] = new ProjectNavViewModel
+        {
+            ProjectId = project.Id,
+            ProjectName = project.Name,
+            TeamName = model.TeamName,
+            IsManager = isManager,
+            ActiveTab = ProjectTabs.Overview
+        };
+
+        return View(model);
     }
 
-        // GET: /Projects/Create  →  Boş formu göster
-    public IActionResult Create()
-    {
-        // Açılır liste için ekipleri hazırla
-        LoadTeams();
-        return View();
-    }
-
-    // POST: /Projects/Create  →  Formu kaydet
+    // POST: /Projects/Create  →  Sayfanın altındaki formdan gelir
+    // Prefix = "NewProject": formdaki alan adları "NewProject.Name" gibi olduğu için
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(
-        [Bind("Name,Description,StartDate,EndDate,TeamId")] Project project)
+        [Bind("Name,Description,StartDate,EndDate,TeamId", Prefix = "NewProject")] Project project)
     {
-        // Tarih kuralını kontrol et (hata varsa ModelState'e eklenir)
-        ValidateDates(project);
+        // Tarih kuralı (hata anahtarı da "NewProject." ön ekiyle eklenmeli)
+        ValidateDates(project, "NewProject.");
 
-        // Doğrulama hatası varsa formu hatalarla birlikte geri göster
-        if (!ModelState.IsValid)
+        // Seçilen ekibin lideri (ya da Admin) değilse proje açamaz.
+        // Açılır listede zaten sadece kendi ekipleri var ama form elle değiştirilebilir.
+        if (project.TeamId != 0 && !await _teamAuth.IsLeaderAsync(User, project.TeamId))
         {
-            // Açılır listeyi tekrar doldur, seçili ekip korunsun
-            LoadTeams(project.TeamId);
-            return View(project);
+            ModelState.AddModelError("NewProject.TeamId",
+                "Sadece lideri olduğunuz ekiplere proje ekleyebilirsiniz.");
         }
 
-        // Hata yoksa veritabanına ekle ve kaydet
+        // Hata varsa aynı sayfayı (kartlar + hatalı form) tekrar göster
+        if (!ModelState.IsValid)
+        {
+            return View("Index", await BuildIndexModelAsync(project));
+        }
+
         _context.Projects.Add(project);
         await _context.SaveChangesAsync();
 
-        // Listeye geri dön
+        // Sayfa yenilenince üstte yeşil mesaj (_TempDataAlerts)
+        TempData["Success"] = $"\"{project.Name}\" projesi oluşturuldu.";
         return RedirectToAction(nameof(Index));
     }
 
-
-        // GET: /Projects/Edit/5  →  Formu mevcut bilgilerle dolu göster
+    // GET: /Projects/Edit/5  →  Formu mevcut bilgilerle dolu göster
     public async Task<IActionResult> Edit(int? id)
     {
-        // Adreste id yoksa (/Projects/Edit) → 404
         if (id == null)
-        {
             return NotFound();
-        }
 
-        // Projeyi id ile bul
         var project = await _context.Projects.FindAsync(id);
-
-        // Böyle bir proje yoksa → 404
         if (project == null)
-        {
             return NotFound();
-        }
 
-        // Açılır listeyi doldur, projenin mevcut ekibi seçili gelsin
-        LoadTeams(project.TeamId);
+        // Sadece projenin ekibinin lideri (ya da Admin) düzenleyebilir.
+        // Forbid() → AccessDenied sayfası
+        if (!await _teamAuth.IsLeaderAsync(User, project.TeamId))
+            return Forbid();
+
+        await LoadLeaderTeamsAsync(project.TeamId);
         return View(project);
     }
 
@@ -96,17 +192,34 @@ public class ProjectsController : Controller
     {
         // Adresteki id ile formdaki gizli Id aynı olmalı
         if (id != project.Id)
-        {
             return NotFound();
+
+        // Projenin veritabanındaki ŞU ANKİ ekibi (formdan gelen değişmiş olabilir).
+        // Select ile sadece TeamId'yi çekiyoruz; int? sayesinde proje yoksa null gelir.
+        var originalTeamId = await _context.Projects
+            .Where(p => p.Id == id)
+            .Select(p => (int?)p.TeamId)
+            .FirstOrDefaultAsync();
+
+        if (originalTeamId == null)
+            return NotFound();
+
+        // Mevcut ekibin lideri değilse düzenleyemez
+        if (!await _teamAuth.IsLeaderAsync(User, originalTeamId.Value))
+            return Forbid();
+
+        // Proje başka bir ekibe taşınıyorsa o ekibin de lideri olmalı
+        if (project.TeamId != originalTeamId && !await _teamAuth.IsLeaderAsync(User, project.TeamId))
+        {
+            ModelState.AddModelError(nameof(Project.TeamId),
+                "Projeyi sadece lideri olduğunuz bir ekibe taşıyabilirsiniz.");
         }
 
-        // Tarih kuralını kontrol et (hata varsa ModelState'e eklenir)
         ValidateDates(project);
 
-        // Doğrulama hatası varsa formu hatalarla geri göster
         if (!ModelState.IsValid)
         {
-            LoadTeams(project.TeamId);
+            await LoadLeaderTeamsAsync(project.TeamId);
             return View(project);
         }
 
@@ -120,36 +233,30 @@ public class ProjectsController : Controller
         {
             // Biz düzenlerken proje başka biri tarafından silindiyse → 404
             if (!await _context.Projects.AnyAsync(p => p.Id == id))
-            {
                 return NotFound();
-            }
-            // Başka bir hata ise olduğu gibi fırlat
             throw;
         }
 
-        // Listeye geri dön
+        TempData["Success"] = "Proje güncellendi.";
         return RedirectToAction(nameof(Index));
     }
 
-        // GET: /Projects/Delete/5  →  Silme onay sayfası
+    // GET: /Projects/Delete/5  →  Silme onay sayfası
     public async Task<IActionResult> Delete(int? id)
     {
-        // Adreste id yoksa → 404
         if (id == null)
-        {
             return NotFound();
-        }
 
-        // Projeyi ekibiyle birlikte bul (onay sayfasında ekip adını göstermek için)
+        // Projeyi ekibiyle birlikte bul (onay sayfasında ekip adı görünsün)
         var project = await _context.Projects
             .Include(p => p.Team)
             .FirstOrDefaultAsync(p => p.Id == id);
 
-        // Böyle bir proje yoksa → 404
         if (project == null)
-        {
             return NotFound();
-        }
+
+        if (!await _teamAuth.IsLeaderAsync(User, project.TeamId))
+            return Forbid();
 
         // Bu projeye ait kaç görev var? (uyarı mesajı için)
         ViewBag.TaskCount = await _context.Tasks.CountAsync(t => t.ProjectId == id);
@@ -158,50 +265,104 @@ public class ProjectsController : Controller
     }
 
     // POST: /Projects/Delete/5  →  Projeyi gerçekten sil
-    // Metot adı farklı (DeleteConfirmed) ama adres yine /Projects/Delete
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
-        // Projeyi bul
         var project = await _context.Projects.FindAsync(id);
 
-        // Varsa sil (görevleri ve yorumları veritabanı otomatik siler)
         if (project != null)
         {
+            // POST'ta da yetki kontrolü (GET'i atlayıp doğrudan POST atılabilir)
+            if (!await _teamAuth.IsLeaderAsync(User, project.TeamId))
+                return Forbid();
+
+            // Görevler, atamalar, yorumlar ve kategoriler veritabanında kademeli silinir
             _context.Projects.Remove(project);
             await _context.SaveChangesAsync();
+            TempData["Success"] = $"\"{project.Name}\" projesi silindi.";
         }
 
-        // Listeye geri dön
         return RedirectToAction(nameof(Index));
     }
 
 
-    // Yardımcı metot: bitiş tarihi başlangıçtan önce olamaz
-    // (Create ve Edit POST'ta çağrılır)
-    private void ValidateDates(Project project)
+    // ---------- Yardımcı metotlar ----------
+
+    // Projeler sayfasının modelini hazırlar (Index GET ve hatalı Create POST kullanır)
+    private async Task<ProjectsIndexViewModel> BuildIndexModelAsync(Project newProject)
     {
-        // İki tarih de girilmişse ve bitiş başlangıçtan önceyse hata ekle
+        // Görebileceği ekipler (üyesi olduğu; Admin'se hepsi)
+        var memberTeamIds = await _teamAuth.GetMemberTeamIdsAsync(User);
+
+        // Yönetebileceği ekipler (lideri olduğu; Admin'se hepsi)
+        var leaderTeamIds = await _teamAuth.GetLeaderTeamIdsAsync(User);
+
+        // Kart verileri. Select ile sadece gereken alanları çekiyoruz;
+        // sayılar (Count) SQL tarafında hesaplanır, görevler belleğe yüklenmez.
+        var cards = await _context.Projects
+            .Where(p => memberTeamIds.Contains(p.TeamId))
+            .OrderBy(p => p.Name)
+            .Select(p => new ProjectCardViewModel
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                TeamId = p.TeamId,
+                TeamName = p.Team!.Name,
+                StartDate = p.StartDate,
+                EndDate = p.EndDate,
+                TaskCount = p.Tasks.Count(),
+                AssignmentCount = p.Tasks.SelectMany(t => t.Assignments).Count(),
+                DoneCount = p.Tasks.SelectMany(t => t.Assignments)
+                                   .Count(a => a.Status == TaskItemStatus.Done)
+            })
+            .ToListAsync();
+
+        // Her kart için "düzenle/sil butonları görünsün mü?"
+        foreach (var card in cards)
+        {
+            card.CanManage = leaderTeamIds.Contains(card.TeamId);
+        }
+
+        // Formdaki ekip listesi: sadece lideri olunan ekipler
+        var leaderTeams = await _context.Teams
+            .Where(t => leaderTeamIds.Contains(t.Id))
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+
+        return new ProjectsIndexViewModel
+        {
+            Projects = cards,
+            NewProject = newProject,
+            // TeamId 0 ise (henüz seçilmemiş) hiçbir ekip seçili gelmesin
+            LeaderTeams = new SelectList(leaderTeams, "Id", "Name",
+                newProject.TeamId == 0 ? null : newProject.TeamId)
+        };
+    }
+
+    // Bitiş tarihi başlangıçtan önce olamaz.
+    // prefix: Index formunda alanlar "NewProject.EndDate" olduğu için hata anahtarı da öyle olmalı
+    private void ValidateDates(Project project, string prefix = "")
+    {
         if (project.StartDate.HasValue && project.EndDate.HasValue
             && project.EndDate < project.StartDate)
         {
-            // Hata "Bitiş Tarihi" alanının altında görünsün
-            ModelState.AddModelError(nameof(Project.EndDate),
+            ModelState.AddModelError(prefix + nameof(Project.EndDate),
                 "Bitiş tarihi başlangıç tarihinden önce olamaz.");
         }
     }
 
-
-    // Yardımcı metot: ekipleri açılır liste için ViewBag'e koyar
-    // (Create ve ileride Edit sayfasında kullanılacak)
-    private void LoadTeams(int? selectedTeamId = null)
+    // Edit sayfasındaki ekip açılır listesi: sadece lideri olunan ekipler
+    private async Task LoadLeaderTeamsAsync(int? selectedTeamId = null)
     {
-        ViewBag.Teams = new SelectList(
-            _context.Teams.OrderBy(t => t.Name).ToList(), // ekipler, ada göre
-            "Id",              // seçilince gönderilecek değer
-            "Name",            // listede görünecek yazı
-            selectedTeamId);   // varsa seçili gelecek ekip
-    }
+        var leaderTeamIds = await _teamAuth.GetLeaderTeamIdsAsync(User);
 
+        ViewBag.Teams = new SelectList(
+            await _context.Teams
+                .Where(t => leaderTeamIds.Contains(t.Id))
+                .OrderBy(t => t.Name)
+                .ToListAsync(),
+            "Id", "Name", selectedTeamId);
+    }
 }
