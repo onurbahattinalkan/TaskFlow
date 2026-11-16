@@ -1,4 +1,12 @@
-﻿<!DOCTYPE html>
+﻿@{
+    // Kullanıcının "ana sayfası": Admin → Yönetici paneli, diğer herkes → Home/Index.
+    // Logo ve "Ana Sayfa" linki bu iki değeri kullanır, ikisi hep aynı yere gider.
+    var isAdmin = User.IsInRole(AppRoles.Admin);
+    var homeController = isAdmin ? "Admin" : "Home";
+} 
+
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -13,15 +21,16 @@
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">TaskFlow</a>
+                <a class="navbar-brand" asp-area="" asp-controller="@homeController" asp-action="Index">TaskFlow</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
+                        @* Admin için yönetici paneli, diğerleri için ana sayfa *@
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                            <a class="nav-link text-dark" asp-area="" asp-controller="@homeController" asp-action="Index">Ana Sayfa</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
@@ -37,14 +46,7 @@
                                 <a class="nav-link text-dark" asp-controller="Projects" asp-action="Index">Projeler</a>
                             </li>
                         }
-                                                @* 1. katman (arayüz): link sadece Admin'e görünür.
-                           Asıl güvenlik AdminController'daki [Authorize] etiketinde. *@
-                        @if (User.IsInRole(AppRoles.Admin))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Admin" asp-action="Users">Yönetim</a>
-                            </li>
-                        }
+                                                
                     </ul>
                     @* Sağ taraf: Giriş/Kayıt veya Merhaba/Çıkış *@
                     <partial name="_LoginPartial" />

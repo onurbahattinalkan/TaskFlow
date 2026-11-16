@@ -10,4 +10,9 @@ public class UserListItemViewModel
     public string Email { get; set; } = string.Empty;
     public bool EmailConfirmed { get; set; }
     public IList<string> Roles { get; set; } = new List<string>();
+
+    // Kullanıcının üye olduğu ekip sayısı (yönetici paneli tablosunda gösterilir)
+    public int TeamCount { get; set; }
+    
+
 }
