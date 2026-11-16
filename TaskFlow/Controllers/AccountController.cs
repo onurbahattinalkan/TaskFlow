@@ -147,8 +147,10 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
     {
+        // Zaten giriş yapmışsa formu gösterme, rolüne göre ilgili sayfaya gönder.
+        // (Burada çerez okunmuş durumda, o yüzden User.IsInRole doğru çalışır.)
         if (User.Identity?.IsAuthenticated == true)
-            return RedirectToAction("Index", "Home");
+            return RedirectAfterLogin(User.IsInRole(AppRoles.Admin));
 
         // Girişten sonra dönülecek adresi view'a taşı (formda gizli olarak geri gönderilecek)
         ViewBag.ReturnUrl = returnUrl;
@@ -188,7 +190,10 @@ public class AccountController : Controller
             if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
                 return LocalRedirect(returnUrl);
 
-            return RedirectToAction("Index", "Home");
+            // returnUrl yoksa rolüne göre yönlendir.
+            // Dikkat: Çerez bu isteğin CEVABINA yazıldı; "User" henüz giriş yapmamış görünür.
+            // Bu yüzden rolü User.IsInRole ile değil, veritabanından (user nesnesinden) soruyoruz.
+            return RedirectAfterLogin(await _userManager.IsInRoleAsync(user, AppRoles.Admin));
         }
 
         if (result.IsNotAllowed)
@@ -258,5 +263,18 @@ public class AccountController : Controller
             <p>Bu kaydı siz yapmadıysanız bu e-postayı yok sayabilirsiniz.</p>";
 
         await _emailService.SendAsync(user.Email!, "TaskFlow - E-posta adresinizi onaylayın", body);
+    }
+
+    // ------------------------------------------------------------------
+    // Girişten sonra kullanıcının gideceği sayfa:
+    //  - Admin → Yönetici paneli (/Admin)
+    //  - Diğer herkes → Projeler (/Projects)
+    // ------------------------------------------------------------------
+    private IActionResult RedirectAfterLogin(bool isAdmin)
+    {
+        if (isAdmin)
+            return RedirectToAction("Index", "Admin");
+
+        return RedirectToAction("Index", "Projects");
     }
 }

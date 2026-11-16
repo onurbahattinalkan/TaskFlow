@@ -83,30 +83,4 @@ public class AdminController : Controller
         return View(model);
     }
 
-    // ------------------------------------------------------------------
-    // GET /Admin/Users  → ESKİ liste sayfası. 4. adımda silinecek.
-    // ------------------------------------------------------------------
-    [HttpGet]
-    public async Task<IActionResult> Users()
-    {
-        var users = await _userManager.Users
-            .OrderBy(u => u.UserName)
-            .ToListAsync();
-
-        var model = new List<UserListItemViewModel>();
-        foreach (var user in users)
-        {
-            model.Add(new UserListItemViewModel
-            {
-                Id = user.Id,
-                UserName = user.UserName ?? string.Empty,
-                FullName = user.FullName,
-                Email = user.Email ?? string.Empty,
-                EmailConfirmed = user.EmailConfirmed,
-                Roles = await _userManager.GetRolesAsync(user)
-            });
-        }
-
-        return View(model);
-    }
 }
