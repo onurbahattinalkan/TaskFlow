@@ -6,6 +6,7 @@ using TaskFlow.Data;
 using TaskFlow.Dtos;
 using TaskFlow.Models;
 using TaskFlow.Services;
+using TaskFlow.Helpers;   // CategoryColors için
 
 namespace TaskFlow.Controllers.Api;
 
@@ -95,6 +96,63 @@ public class TasksApiController : ControllerBase
         return task;   // 200 + JSON nesne
     }
 
+    // POST /api/tasks  →  Yeni görev oluştur ve seçilen kişilere ata (sadece Lider/Admin)
+    [HttpPost]
+    public async Task<ActionResult<TaskDto>> CreateTask(TaskCreateDto dto)
+    {
+        // Buraya gelindiyse DTO kuralları ([Required] vb.) zaten geçti; bozuksa otomatik 400 dönerdi
+
+        var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == dto.ProjectId);
+        if (project == null)
+            return NotFound();   // 404
+
+        // Görev oluşturmak yöneticiye özel
+        if (!await _teamAuth.IsLeaderAsync(User, project.TeamId))
+            return Forbid();     // 403
+
+        // Veritabanı gerektiren kontroller (hatalar ModelState'e eklenir)
+        var category = await ResolveCategoryAsync(project.Id, dto);
+        await ValidateAssigneesAsync(project.TeamId, dto.Assignees);
+
+        // Hata varsa otomatik 400 ile AYNI biçimde cevap ver
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var nowUtc = DateTime.UtcNow;
+
+        var task = new TaskItem
+        {
+            Title = dto.Title.Trim(),
+            Description = dto.Description,
+            ProjectId = project.Id,
+            Category = category!,   // yeni kategoriyse EF onu da ekler
+            CreatedAt = nowUtc
+        };
+
+        // Gönderilen her kişi için bir atama
+        foreach (var a in dto.Assignees)
+        {
+            task.Assignments.Add(new TaskAssignment
+            {
+                UserId = a.UserId,
+                // DateTimeOffset → UTC (hangi saat diliminden gelirse gelsin doğru çevrilir)
+                DueDate = a.DueDate!.Value.UtcDateTime,
+                Status = TaskItemStatus.Todo,
+                AssignedAt = nowUtc
+            });
+        }
+
+        _context.Tasks.Add(task);
+        await _context.SaveChangesAsync();
+
+        // Kaydedilen görevi kullanıcı adları ve kategoriyle birlikte DTO olarak geri oku
+        var result = await ToDto(_context.Tasks.Where(t => t.Id == task.Id), isManager: true, userId: null)
+            .FirstAsync();
+
+        // 201 Created + Location: /api/tasks/{id} + gövdede yeni görev
+        return CreatedAtAction(nameof(GetTask), new { id = task.Id }, result);
+    }
+
     // ---------- Yardımcı metotlar ----------
 
     // TaskItem sorgusunu TaskDto'ya çevirir (EF bunu tek bir SQL sorgusuna dönüştürür).
@@ -128,4 +186,90 @@ public class TasksApiController : ControllerBase
                 })
                 .ToList()
         });
+
+
+    // Kategoriyi belirler: yeni ad yazıldıysa onu bulur/oluşturur, yoksa seçilen Id'yi doğrular.
+    // Bulamazsa ModelState'e hata ekler ve null döner. (POST ve PUT ortak kullanır)
+    private async Task<Category?> ResolveCategoryAsync(int projectId, TaskUpdateDto dto)
+    {
+        var newName = dto.NewCategoryName?.Trim();
+
+        if (!string.IsNullOrEmpty(newName))
+        {
+            // Aynı isim projede zaten varsa onu kullan (büyük/küçük harf duyarsız)
+            var existing = await _context.Categories.FirstOrDefaultAsync(c =>
+                c.ProjectId == projectId && c.Name.ToLower() == newName.ToLower());
+
+            if (existing != null)
+                return existing;
+
+            // Renk paletten değilse varsayılan renk
+            var color = dto.NewCategoryColor?.Trim().ToLowerInvariant();
+            if (color == null || !CategoryColors.All.ContainsKey(color))
+                color = CategoryColors.Default;
+
+            return new Category { Name = newName, Color = color, ProjectId = projectId };
+        }
+
+        if (dto.CategoryId.HasValue)
+        {
+            // Seçilen kategori bu projeye mi ait?
+            var category = await _context.Categories.FirstOrDefaultAsync(c =>
+                c.Id == dto.CategoryId && c.ProjectId == projectId);
+
+            if (category != null)
+                return category;
+
+            ModelState.AddModelError(nameof(dto.CategoryId), "Kategori bu projede bulunamadı.");
+            return null;
+        }
+
+        ModelState.AddModelError(nameof(dto.CategoryId), "CategoryId ya da NewCategoryName gönderilmelidir.");
+        return null;
+    }
+
+    // Atanan kişileri kontrol eder; hataları ModelState'e ekler. (POST ve PUT ortak kullanır)
+    // existingDue: düzenlemede kişilerin mevcut son tarihleri (UTC); oluşturmada null
+    private async Task ValidateAssigneesAsync(
+        int teamId, List<AssigneeDto> assignees, Dictionary<string, DateTime>? existingDue = null)
+    {
+        // Ekip üyelerinin Id'leri (HashSet: Contains hızlı çalışır)
+        var memberIds = (await _context.TeamMembers
+            .Where(m => m.TeamId == teamId)
+            .Select(m => m.UserId)
+            .ToListAsync()).ToHashSet();
+
+        var seen = new HashSet<string>();   // aynı kişi iki kez gönderilmesin
+        var nowUtc = DateTime.UtcNow;
+
+        for (int i = 0; i < assignees.Count; i++)
+        {
+            var a = assignees[i];
+            // Hata anahtarı otomatik 400'deki gibi: "Assignees[0].UserId"
+            var key = $"{nameof(TaskUpdateDto.Assignees)}[{i}]";
+
+            if (!seen.Add(a.UserId))
+            {
+                ModelState.AddModelError($"{key}.{nameof(AssigneeDto.UserId)}", "Aynı kişi birden fazla kez gönderildi.");
+                continue;
+            }
+
+            if (!memberIds.Contains(a.UserId))
+            {
+                ModelState.AddModelError($"{key}.{nameof(AssigneeDto.UserId)}", "Bu kişi projenin ekibinde değil.");
+                continue;
+            }
+
+            var dueUtc = a.DueDate!.Value.UtcDateTime;
+
+            // Düzenlemede bu kişinin son tarihi DEĞİŞMEDİYSE geçmişte olması sorun değil
+            var unchanged = existingDue != null
+                && existingDue.TryGetValue(a.UserId, out var oldDue)
+                && Math.Abs((oldDue - dueUtc).TotalMinutes) < 1;
+
+            if (!unchanged && dueUtc <= nowUtc)
+                ModelState.AddModelError($"{key}.{nameof(AssigneeDto.DueDate)}", "Son tarih geçmiş bir zaman olamaz.");
+        }
+    }
+
 }
