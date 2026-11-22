@@ -152,6 +152,81 @@ public class TasksApiController : ControllerBase
         // 201 Created + Location: /api/tasks/{id} + gövdede yeni görev
         return CreatedAtAction(nameof(GetTask), new { id = task.Id }, result);
     }
+    // PUT /api/tasks/5  →  Görevi düzenle (sadece Lider/Admin)
+    // Gövdedeki "assignees" listesi atamaların SON HALİDİR:
+    //   listede olmayan mevcut atamalar silinir, yeni kişiler eklenir,
+    //   kalanların son tarihi güncellenir (durumları korunur).
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> UpdateTask(int id, TaskUpdateDto dto)
+    {
+        // Görevi projesi ve atamalarıyla birlikte yükle (değiştireceğimiz için Select değil Include)
+        var task = await _context.Tasks
+            .Include(t => t.Project)
+            .Include(t => t.Assignments)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (task == null)
+            return NotFound();   // 404
+
+        // Proje gövdeden değil görevin kendisinden alınır
+        var project = task.Project!;
+
+        if (!await _teamAuth.IsLeaderAsync(User, project.TeamId))
+            return Forbid();     // 403
+
+        // Mevcut son tarihler: değiştirilmeyenler "geçmiş zaman" kontrolüne takılmasın
+        var existingDue = task.Assignments.ToDictionary(a => a.UserId, a => a.DueDate);
+
+        var category = await ResolveCategoryAsync(project.Id, dto);
+        await ValidateAssigneesAsync(project.TeamId, dto.Assignees, existingDue);
+
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);   // 400
+
+        var nowUtc = DateTime.UtcNow;
+
+        // ---------- Ortak bilgiler ----------
+        task.Title = dto.Title.Trim();
+        task.Description = dto.Description;
+        task.Category = category!;
+
+        // ---------- Atamalar ----------
+        var newIds = dto.Assignees.Select(a => a.UserId).ToHashSet();
+
+        // 1) Listede olmayan kişilerin atamalarını sil
+        foreach (var old in task.Assignments.Where(a => !newIds.Contains(a.UserId)).ToList())
+        {
+            _context.TaskAssignments.Remove(old);
+        }
+
+        // 2) Listedeki kişiler: yeni ise ekle, varsa son tarihini güncelle
+        foreach (var a in dto.Assignees)
+        {
+            var dueUtc = a.DueDate!.Value.UtcDateTime;
+            var existing = task.Assignments.FirstOrDefault(x => x.UserId == a.UserId);
+
+            if (existing == null)
+            {
+                task.Assignments.Add(new TaskAssignment
+                {
+                    UserId = a.UserId,
+                    DueDate = dueUtc,
+                    Status = TaskItemStatus.Todo,
+                    AssignedAt = nowUtc
+                });
+            }
+            else if (Math.Abs((existing.DueDate - dueUtc).TotalMinutes) >= 1)
+            {
+                // Sadece gerçekten değiştiyse (saniye farklarını yok say)
+                existing.DueDate = dueUtc;
+            }
+            // Status ve AssignedAt korunur
+        }
+
+        await _context.SaveChangesAsync();
+
+        return NoContent();   // 204: başarılı, gövde yok
+    }
 
     // ---------- Yardımcı metotlar ----------
 
