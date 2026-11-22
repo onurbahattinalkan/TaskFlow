@@ -4,19 +4,28 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaskFlow.Data;
 using TaskFlow.Dtos;
+using TaskFlow.Helpers;
 using TaskFlow.Models;
 using TaskFlow.Services;
-using TaskFlow.Helpers;   // CategoryColors için
 
 namespace TaskFlow.Controllers.Api;
 
-// Görevler için REST API.
+/// <summary>
+/// Görevler için REST API (CRUD). Giriş yapılmış olmalı (tarayıcıdaki giriş çerezi kullanılır).
+/// </summary>
 // [ApiController]: JSON → DTO çevirisi, otomatik 400 (doğrulama), standart hata gövdesi
 // [Route]: tüm uç noktalar /api/tasks altında
 // [Authorize]: giriş zorunlu (girişsiz istek 401 alır, Login'e yönlenmez)
+// [Tags]: Swagger'da bu uç noktaların başlığı
+// [Produces]: cevaplar JSON
+// [ProducesResponseType] (sınıf seviyesi): her uç nokta için geçerli olası kodlar
 [ApiController]
 [Route("api/tasks")]
 [Authorize]
+[Tags("Görevler")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
 public class TasksApiController : ControllerBase
 {
     private readonly AppDbContext _context;
@@ -28,10 +37,18 @@ public class TasksApiController : ControllerBase
         _teamAuth = teamAuth;
     }
 
-    // GET /api/tasks?projectId=1  →  Projenin görevleri
-    // Lider/Admin: tüm görevler + tüm atamalar
-    // Normal üye: sadece kendisine atanan görevler + sadece kendi ataması
+    /// <summary>Projenin görevlerini listeler.</summary>
+    /// <remarks>
+    /// Lider/Admin: projedeki tüm görevler ve tüm atamalar.
+    /// Normal üye: sadece kendisine atanan görevler ve sadece kendi ataması.
+    /// </remarks>
+    /// <param name="projectId">Projenin Id'si.</param>
+    /// <response code="200">Görev listesi.</response>
+    /// <response code="403">Kullanıcı projenin ekibinde değil.</response>
+    /// <response code="404">Proje bulunamadı.</response>
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<List<TaskDto>>> GetTasks([FromQuery] int projectId)
     {
         // Proje var mı? (sadece ekip Id'si lazım, tüm satırı çekmeye gerek yok)
@@ -62,9 +79,15 @@ public class TasksApiController : ControllerBase
         return tasks;   // 200 + JSON dizi
     }
 
-    // GET /api/tasks/5  →  Tek görev
+    /// <summary>Tek bir görevi getirir.</summary>
+    /// <param name="id">Görevin Id'si.</param>
+    /// <response code="200">Görev.</response>
+    /// <response code="403">Kullanıcı projenin ekibinde değil.</response>
+    /// <response code="404">Görev bulunamadı (ya da normal üyeye atanmamış).</response>
     // {id:int}: sadece sayı kabul edilir (/api/tasks/abc → 404)
     [HttpGet("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TaskDto>> GetTask(int id)
     {
         // Görevin projesinin ekibi
@@ -96,8 +119,20 @@ public class TasksApiController : ControllerBase
         return task;   // 200 + JSON nesne
     }
 
-    // POST /api/tasks  →  Yeni görev oluştur ve seçilen kişilere ata (sadece Lider/Admin)
+    /// <summary>Yeni görev oluşturur ve seçilen kişilere atar (sadece Lider/Admin).</summary>
+    /// <remarks>
+    /// Kategori için ya categoryId (mevcut) ya da newCategoryName (yeni) gönderilir.
+    /// Son tarihler saat dilimiyle gönderilir, örn: 2026-11-30T18:00:00+03:00
+    /// </remarks>
+    /// <response code="201">Görev oluşturuldu; Location başlığında adresi var.</response>
+    /// <response code="400">Doğrulama hatası (errors alanında ayrıntılar).</response>
+    /// <response code="403">Kullanıcı bu projenin yöneticisi değil.</response>
+    /// <response code="404">Proje bulunamadı.</response>
     [HttpPost]
+    [Consumes("application/json")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TaskDto>> CreateTask(TaskCreateDto dto)
     {
         // Buraya gelindiyse DTO kuralları ([Required] vb.) zaten geçti; bozuksa otomatik 400 dönerdi
@@ -152,11 +187,23 @@ public class TasksApiController : ControllerBase
         // 201 Created + Location: /api/tasks/{id} + gövdede yeni görev
         return CreatedAtAction(nameof(GetTask), new { id = task.Id }, result);
     }
-    // PUT /api/tasks/5  →  Görevi düzenle (sadece Lider/Admin)
-    // Gövdedeki "assignees" listesi atamaların SON HALİDİR:
-    //   listede olmayan mevcut atamalar silinir, yeni kişiler eklenir,
-    //   kalanların son tarihi güncellenir (durumları korunur).
+
+    /// <summary>Görevi düzenler (sadece Lider/Admin).</summary>
+    /// <remarks>
+    /// assignees listesi atamaların SON HALİDİR: listede olmayan mevcut atamalar silinir,
+    /// yeni kişiler eklenir, kalanların son tarihi güncellenir (durumları korunur).
+    /// </remarks>
+    /// <param name="id">Görevin Id'si.</param>
+    /// <param name="dto">Görevin yeni hali.</param>
+    /// <response code="204">Güncellendi.</response>
+    /// <response code="400">Doğrulama hatası.</response>
+    /// <response code="403">Kullanıcı bu projenin yöneticisi değil.</response>
+    /// <response code="404">Görev bulunamadı.</response>
     [HttpPut("{id:int}")]
+    [Consumes("application/json")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateTask(int id, TaskUpdateDto dto)
     {
         // Görevi projesi ve atamalarıyla birlikte yükle (değiştireceğimiz için Select değil Include)
@@ -228,10 +275,18 @@ public class TasksApiController : ControllerBase
         return NoContent();   // 204: başarılı, gövde yok
     }
 
-    // DELETE /api/tasks/5  →  Görevi tamamen sil (sadece Lider/Admin)
-    // Atamaları ve yorumları veritabanındaki Cascade kuralıyla birlikte silinir.
-    // (Görevi sadece bir kişiden kaldırmak için PUT ile o kişiyi listeden çıkarın.)
+    /// <summary>Görevi tamamen siler (sadece Lider/Admin).</summary>
+    /// <remarks>
+    /// Atamaları ve yorumları da silinir. Görevi sadece bir kişiden kaldırmak için
+    /// PUT ile o kişiyi assignees listesinden çıkarın.
+    /// </remarks>
+    /// <param name="id">Görevin Id'si.</param>
+    /// <response code="204">Silindi.</response>
+    /// <response code="403">Kullanıcı bu projenin yöneticisi değil.</response>
+    /// <response code="404">Görev bulunamadı.</response>
     [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteTask(int id)
     {
         // Yetki kontrolü için projesiyle birlikte yükle
@@ -284,7 +339,6 @@ public class TasksApiController : ControllerBase
                 })
                 .ToList()
         });
-
 
     // Kategoriyi belirler: yeni ad yazıldıysa onu bulur/oluşturur, yoksa seçilen Id'yi doğrular.
     // Bulamazsa ModelState'e hata ekler ve null döner. (POST ve PUT ortak kullanır)
@@ -369,5 +423,4 @@ public class TasksApiController : ControllerBase
                 ModelState.AddModelError($"{key}.{nameof(AssigneeDto.DueDate)}", "Son tarih geçmiş bir zaman olamaz.");
         }
     }
-
 }

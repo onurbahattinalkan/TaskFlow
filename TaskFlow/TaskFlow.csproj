@@ -4,6 +4,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+	  <!-- /// yorumlarını XML dosyasına yaz (Swagger okuyacak) -->
+	  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+	  <!-- 1591: "public üyede /// yorum yok" uyarısı; her sınıfa yorum yazmak zorunda kalmayalım -->
+	  <NoWarn>$(NoWarn);1591</NoWarn>
     <UserSecretsId>8c42f9c4-4159-4afc-8efc-c6178556f39b</UserSecretsId>
   </PropertyGroup>
 

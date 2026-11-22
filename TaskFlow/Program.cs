@@ -92,6 +92,9 @@ builder.Services.AddSwaggerGen(o =>
         Version = "v1",
         Description = "TaskFlow görev yönetimi için REST API (CRUD)."
     });
+    // Derleyicinin ürettiği XML yorum dosyası (TaskFlow.xml): açıklamalar Swagger'da görünsün
+    var xmlFile = $"{typeof(Program).Assembly.GetName().Name}.xml";
+    o.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFile));
 });
 
 var app = builder.Build();
