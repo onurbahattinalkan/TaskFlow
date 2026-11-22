@@ -3,6 +3,7 @@ using TaskFlow.Data;
 using Microsoft.AspNetCore.Identity;   // AddIdentity, IdentityRole için
 using TaskFlow.Models;                 // ApplicationUser için
 using TaskFlow.Services;
+using System.Text.Json.Serialization;   // JsonStringEnumConverter için
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,8 +76,26 @@ builder.Services.AddTransient<IEmailService, SmtpEmailService>();
 // (her HTTP isteği için bir tane) olmalı.
 builder.Services.AddScoped<ITeamAuthorizationService, TeamAuthorizationService>();
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
+// MVC sayfaları + API controller'ları
+builder.Services.AddControllersWithViews()
+    // JSON'da enum'lar sayı yerine metin olsun: Status = "Todo" (0 değil)
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// Swagger: API uç noktalarını tarayıp belge (OpenAPI) üretir
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(o =>
+{
+    // Swagger sayfasının başlığı ve açıklaması
+    o.SwaggerDoc("v1", new()
+    {
+        Title = "TaskFlow API",
+        Version = "v1",
+        Description = "TaskFlow görev yönetimi için REST API (CRUD)."
+    });
+    // Derleyicinin ürettiği XML yorum dosyası (TaskFlow.xml): açıklamalar Swagger'da görünsün
+    var xmlFile = $"{typeof(Program).Assembly.GetName().Name}.xml";
+    o.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFile));
+});
 
 var app = builder.Build();
 
@@ -95,6 +114,15 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+
+// Swagger sayfası sadece geliştirme ortamında açık
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();     // /swagger/v1/swagger.json belgesini sunar
+    app.UseSwaggerUI(o => o.DocumentTitle = "TaskFlow API");  // /swagger arayüzü
+}
+
+
 
 app.UseHttpsRedirection();
 app.UseRouting();
