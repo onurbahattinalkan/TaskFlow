@@ -228,6 +228,29 @@ public class TasksApiController : ControllerBase
         return NoContent();   // 204: başarılı, gövde yok
     }
 
+    // DELETE /api/tasks/5  →  Görevi tamamen sil (sadece Lider/Admin)
+    // Atamaları ve yorumları veritabanındaki Cascade kuralıyla birlikte silinir.
+    // (Görevi sadece bir kişiden kaldırmak için PUT ile o kişiyi listeden çıkarın.)
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteTask(int id)
+    {
+        // Yetki kontrolü için projesiyle birlikte yükle
+        var task = await _context.Tasks
+            .Include(t => t.Project)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (task == null)
+            return NotFound();   // 404
+
+        if (!await _teamAuth.IsLeaderAsync(User, task.Project!.TeamId))
+            return Forbid();     // 403
+
+        _context.Tasks.Remove(task);
+        await _context.SaveChangesAsync();
+
+        return NoContent();   // 204
+    }
+
     // ---------- Yardımcı metotlar ----------
 
     // TaskItem sorgusunu TaskDto'ya çevirir (EF bunu tek bir SQL sorgusuna dönüştürür).
