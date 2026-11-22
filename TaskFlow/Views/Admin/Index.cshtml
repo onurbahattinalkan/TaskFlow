@@ -1,0 +1,151 @@
+@* Yönetici paneli ana sayfası. Veriyi AdminController.Index hazırlar. *@
+@model AdminDashboardViewModel
+
+@{
+    ViewData["Title"] = "Yönetici Paneli";
+}
+
+@* Başka sayfadan gelen bir kerelik başarı/hata mesajları (ileride rol değiştirmede lazım olacak) *@
+<partial name="_TempDataAlerts" />
+
+<h2 class="h4 mb-3">Yönetici Paneli</h2>
+
+@* ---------- 1) ÖZET KUTUCUKLARI ----------
+   row-cols-2: telefonda yan yana 2 kutu, row-cols-md-5: geniş ekranda 5 kutu tek satır *@
+<div class="row row-cols-2 row-cols-md-5 g-3 mb-4">
+    <div class="col">
+        <div class="stat-tile">
+            <div class="stat-value">@Model.UserCount</div>
+            <div class="stat-label">👤 Kullanıcı</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-tile">
+            <div class="stat-value">@Model.TeamCount</div>
+            <div class="stat-label">👥 Ekip</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-tile">
+            <div class="stat-value">@Model.ProjectCount</div>
+            <div class="stat-label">📁 Proje</div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-tile">
+            <div class="stat-value">@Model.TaskCount</div>
+            <div class="stat-label">📋 Görev</div>
+        </div>
+    </div>
+    <div class="col">
+        @* Geciken atama varsa kutucuk kırmızı olsun (stat-danger site.css'te tanımlı) *@
+        <div class="stat-tile @(Model.OverdueCount > 0 ? "stat-danger" : "")"
+             title="Bitmemiş ve son tarihi geçmiş atamalar">
+            <div class="stat-value">@Model.OverdueCount</div>
+            <div class="stat-label">⚠️ Geciken</div>
+        </div>
+    </div>
+</div>
+
+@* ---------- 2) HIZLI ERİŞİM ---------- *@
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Hızlı Erişim</div>
+    <div class="card-body d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary" asp-controller="Teams" asp-action="Index">👥 Ekiplerim</a>
+        <a class="btn btn-outline-primary" asp-controller="Projects" asp-action="Index">📁 Projeler</a>
+
+        @* Henüz yazılmamış sayfalar: tıklanamaz.
+           6. haftada → <a class="btn btn-outline-primary" asp-controller="Admin" asp-action="...">
+           7. haftada → aynı şekilde Tüm Projeler *@
+        <span class="btn btn-outline-secondary disabled" aria-disabled="true">🔑 Rol Yönetimi · yakında</span>
+        <span class="btn btn-outline-secondary disabled" aria-disabled="true">🗂️ Tüm Projeler · yakında</span>
+    </div>
+</div>
+
+@* ---------- 3) KULLANICI TABLOSU ---------- *@
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        @* Parantez içindeki sayı aramaya göre JavaScript'le güncellenir *@
+        <span class="fw-semibold">Kullanıcılar (<span id="user-count">@Model.Users.Count</span>)</span>
+
+        <input id="user-search" type="search" class="form-control form-control-sm"
+               style="max-width: 260px;" placeholder="Ara: ad, kullanıcı adı, e-posta" />
+    </div>
+
+    <div class="table-responsive">
+        <table id="user-table" class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Kullanıcı Adı</th>
+                    <th>Ad Soyad</th>
+                    <th>E-posta</th>
+                    <th>E-posta Onayı</th>
+                    <th>Roller</th>
+                    <th class="text-center">Ekip</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in Model.Users)
+                {
+                    @* data-search: JavaScript'in arama yapacağı metin *@
+                    <tr data-search="@user.UserName @user.FullName @user.Email">
+                        <td><strong>@user.UserName</strong></td>
+                        <td>@user.FullName</td>
+                        <td>@user.Email</td>
+                        <td>
+                            @if (user.EmailConfirmed)
+                            {
+                                <span class="badge bg-success">Onaylı</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">Bekliyor</span>
+                            }
+                        </td>
+                        <td>
+                            @* Admin kırmızı rozet, diğer roller gri *@
+                            @foreach (var role in user.Roles)
+                            {
+                                <span class="badge @(role == AppRoles.Admin ? "bg-danger" : "bg-secondary") me-1">@role</span>
+                            }
+                        </td>
+                        <td class="text-center">@user.TeamCount</td>
+                    </tr>
+                }
+
+                @* Arama hiçbir satırla eşleşmezse gösterilecek satır (başta gizli) *@
+                <tr id="no-result" class="d-none">
+                    <td colspan="6" class="text-center text-muted py-3">Eşleşen kullanıcı yok</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@* _Layout'taki RenderSectionAsync("Scripts") buraya yazılan kodu sayfanın en altına koyar *@
+@section Scripts {
+    <script>
+        // Sayfa içi arama: sunucuya gitmeden, yazdıkça tablo satırlarını süzer
+        const searchInput = document.getElementById('user-search');
+        const userRows = document.querySelectorAll('#user-table tbody tr[data-search]');
+        const userCount = document.getElementById('user-count');
+        const noResult = document.getElementById('no-result');
+
+        searchInput.addEventListener('input', () => {
+            // Türkçe kurallarıyla küçük harfe çevir ("İSTANBUL" → "istanbul")
+            const query = searchInput.value.trim().toLocaleLowerCase('tr');
+            let visible = 0;
+
+            userRows.forEach(row => {
+                const match = row.dataset.search.toLocaleLowerCase('tr').includes(query);
+                // Eşleşmeyen satıra d-none ekle (gizle), eşleşenden kaldır
+                row.classList.toggle('d-none', !match);
+                if (match) visible++;
+            });
+
+            userCount.textContent = visible;
+            // Hiç satır görünmüyorsa "Eşleşen kullanıcı yok" satırını göster
+            noResult.classList.toggle('d-none', visible > 0);
+        });
+    </script>
+}
